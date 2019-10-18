@@ -434,7 +434,7 @@ public:
         }
 
         //- Number of processes in parallel run, and 1 for serial run
-        static label nProcs(const label communicator = 0)
+        static label nProcs(const label communicator = worldComm)
         {
             return procIDs_[communicator].size();
         }
@@ -446,13 +446,13 @@ public:
         }
 
         //- Am I the master process
-        static bool master(const label communicator = 0)
+        static bool master(const label communicator = worldComm)
         {
             return myProcNo_[communicator] == masterNo();
         }
 
         //- Number of this process (starting from masterNo() = 0)
-        static int myProcNo(const label communicator = 0)
+        static int myProcNo(const label communicator = worldComm)
         {
             return myProcNo_[communicator];
         }
@@ -469,14 +469,14 @@ public:
         }
 
         //- Range of process indices for all processes
-        static IntRange<int> allProcs(const label communicator = 0)
+        static IntRange<int> allProcs(const label communicator = worldComm)
         {
             // Proc 0 -> nProcs
             return IntRange<int>(static_cast<int>(nProcs(communicator)));
         }
 
         //- Range of process indices for sub-processes
-        static IntRange<int> subProcs(const label communicator = 0)
+        static IntRange<int> subProcs(const label communicator = worldComm)
         {
             // Proc 1 -> nProcs
             return IntRange<int>(1, static_cast<int>(nProcs(communicator)-1));
@@ -485,7 +485,7 @@ public:
         //- Communication schedule for linear all-to-master (proc 0)
         static const List<commsStruct>& linearCommunication
         (
-            const label communicator = 0
+            const label communicator = worldComm
         )
         {
             return linearCommunication_[communicator];
@@ -494,7 +494,7 @@ public:
         //- Communication schedule for tree all-to-master (proc 0)
         static const List<commsStruct>& treeCommunication
         (
-            const label communicator = 0
+            const label communicator = worldComm
         )
         {
             return treeCommunication_[communicator];
@@ -539,7 +539,7 @@ public:
         (
             const labelUList& sendData,
             labelUList& recvData,
-            const label communicator = 0
+            const label communicator = worldComm
         );
 
         //- Exchange data with all processors (in the communicator)
@@ -556,7 +556,7 @@ public:
             const UList<int>& recvSizes,
             const UList<int>& recvOffsets,
 
-            const label communicator = 0
+            const label communicator = worldComm
         );
 
         //- Receive data from all processors on the master
@@ -568,7 +568,7 @@ public:
             char* recvData,
             const UList<int>& recvSizes,
             const UList<int>& recvOffsets,
-            const label communicator = 0
+            const label communicator = worldComm
         );
 
         //- Send data to all processors from the root of the communicator
@@ -580,7 +580,7 @@ public:
 
             char* recvData,
             int recvSize,
-            const label communicator = 0
+            const label communicator = worldComm
         );
 
 
@@ -595,7 +595,7 @@ public:
 
         //- Process index of last sub-process
         //  \deprecated(2020-09) use subProcs() method instead
-        static int lastSlave(const label communicator = 0)
+        static int lastSlave(const label communicator = worldComm)
         {
             return nProcs(communicator) - 1;
         }

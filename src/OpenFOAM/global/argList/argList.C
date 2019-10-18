@@ -166,13 +166,24 @@ Foam::argList::initValidTables::initValidTables()
         true  // advanced option
     );
 
+    argList::addBoolOption
+    (
+        "localWorld",
+        "Use application-local communicator for default communication"
+    );
+    validParOptions.set
+    (
+        "localWorld",
+        "Use application-local communicator for default communication"
+    );
+
     // Some standard option aliases (with or without version warnings)
 //     argList::addOptionCompat
 //     (
 //         "noFunctionObjects", {"no-function-objects", 0}
 //     );
 
-    Pstream::addValidParOptions(validParOptions);
+//    Pstream::addValidParOptions(validParOptions);
 }
 
 Foam::argList::initValidTables dummyInitValidTables;
@@ -493,6 +504,7 @@ void Foam::argList::noParallel()
     removeOption("roots");
     removeOption("decomposeParDict");
     removeOption("hostRoots");
+    removeOption("localWorld");
     validParOptions.clear();
 }
 
@@ -711,6 +723,7 @@ void Foam::argList::setCasePaths()
         }
         else
         {
+            caseDir.expand();
             caseDir.toAbsolute();
         }
     }
