@@ -33,6 +33,12 @@ Foam::mappedPatchBase::mode() const
 }
 
 
+inline const Foam::word& Foam::mappedPatchBase::sampleWorld() const
+{
+    return sampleWorld_;
+}
+
+
 inline const Foam::word& Foam::mappedPatchBase::sampleRegion() const
 {
     if (sampleRegion_.empty())
