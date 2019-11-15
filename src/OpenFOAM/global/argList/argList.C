@@ -1269,7 +1269,7 @@ void Foam::argList::parse
                     dictNProcs = roots.size()+1;
                 }
             }
-            else if (checkProcessorDirectories_)
+            else if (checkProcessorDirectories_ && Pstream::nProcs() > 1)
             {
                 // Use values from decomposeParDict, the location was already
                 // established above.
@@ -1296,6 +1296,13 @@ void Foam::argList::parse
                 Pstream::parRun(oldParRun);  // Restore parallel state
 
                 decompDict.readEntry("numberOfSubdomains", dictNProcs);
+                if (Pstream::nProcs() == 1)
+                {
+                    WarningInFunction
+                        << "Running parallel on single processor. This only"
+                        << " makes sense for multi-world simulation" << endl;
+                    dictNProcs = 1;
+                }
 
                 if (decompDict.getOrDefault("distributed", false))
                 {
@@ -1328,7 +1335,12 @@ void Foam::argList::parse
             // - normal running : nProcs = dictNProcs = nProcDirs
             // - decomposition to more  processors : nProcs = dictNProcs
             // - decomposition to fewer processors : nProcs = nProcDirs
-            if (checkProcessorDirectories_ && dictNProcs > Pstream::nProcs())
+            if
+            (
+                checkProcessorDirectories_
+             && Pstream::nProcs() > 1
+             && dictNProcs > Pstream::nProcs()
+            )
             {
                 FatalError
                     << source
@@ -1381,6 +1393,7 @@ void Foam::argList::parse
                 if
                 (
                     checkProcessorDirectories_
+                 && Pstream::nProcs() > 1
                  && dictNProcs < Pstream::nProcs()
                 )
                 {
@@ -1433,7 +1446,14 @@ void Foam::argList::parse
         }
 
         nProcs = Pstream::nProcs();
-        case_ = globalCase_/("processor" + Foam::name(Pstream::myProcNo()));
+        if (Pstream::nProcs() > 1)
+        {
+            case_ = globalCase_/("processor" + Foam::name(Pstream::myProcNo()));
+        }
+        else
+        {
+            case_ = globalCase_;
+        }
     }
     else
     {
