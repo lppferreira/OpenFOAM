@@ -86,14 +86,13 @@ Foam::mappedPatchBase::offsetModeNames_
 
 Foam::label Foam::mappedPatchBase::communicator
 (
-    const word& myWorld,
     const word& sampleWorld
 )
 {
     // Start off with local world
     label comm = UPstream::worldComm;
 
-    if (!sampleWorld.empty() && !myWorld.empty())
+    if (!sampleWorld.empty())
     {
         const wordList& procWorlds = UPstream::worlds();
 
@@ -108,7 +107,7 @@ Foam::label Foam::mappedPatchBase::communicator
         forAll(procWorlds, proci)
         {
             const word& world = procWorlds[proci];
-            if (world == myWorld || world == sampleWorld)
+            if (world == UPstream::myWorld() || world == sampleWorld)
             {
                 subRanks.append(proci);
             }
@@ -117,7 +116,8 @@ Foam::label Foam::mappedPatchBase::communicator
         // Allocate new communicator with parent 0 (= world)
         comm = UPstream::allocateCommunicator(0, subRanks, true);
 
-        Pout<< "*** myWorld:" << myWorld << " sampleWorld:" << sampleWorld
+        Pout<< "*** myWorld:" << UPstream::myWorld()
+            << " sampleWorld:" << sampleWorld
             << " using subRanks:" << subRanks << " new comm:" << comm << endl;
     }
 
@@ -1075,7 +1075,7 @@ Foam::mappedPatchBase::mappedPatchBase(const polyPatch& pp)
     offset_(Zero),
     offsets_(pp.size(), offset_),
     distance_(0),
-    comm_(communicator(UPstream::myWorld(), sampleWorld_)),
+    comm_(communicator(sampleWorld_)),
     sameRegion_
     (
         sampleWorld_.empty()
@@ -1108,7 +1108,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(Zero),
     offsets_(offsets),
     distance_(0),
-    comm_(communicator(UPstream::myWorld(), sampleWorld_)),
+    comm_(communicator(sampleWorld_)),
     sameRegion_
     (
         sampleWorld_.empty()
@@ -1141,7 +1141,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(offset),
     offsets_(0),
     distance_(0),
-    comm_(communicator(UPstream::myWorld(), sampleWorld_)),
+    comm_(communicator(sampleWorld_)),
     sameRegion_
     (
         sampleWorld_.empty()
@@ -1174,7 +1174,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(Zero),
     offsets_(0),
     distance_(distance),
-    comm_(communicator(UPstream::myWorld(), sampleWorld_)),
+    comm_(communicator(sampleWorld_)),
     sameRegion_
     (
         sampleWorld_.empty()
@@ -1204,7 +1204,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(Zero),
     offsets_(0),
     distance_(0.0),
-    comm_(communicator(UPstream::myWorld(), sampleWorld_)),
+    comm_(communicator(sampleWorld_)),
     sameRegion_
     (
         sampleWorld_.empty()
@@ -1293,7 +1293,7 @@ Foam::mappedPatchBase::mappedPatchBase
     offset_(Zero),
     offsets_(0),
     distance_(0.0),
-    comm_(communicator(UPstream::myWorld(), sampleWorld_)),
+    comm_(communicator(sampleWorld_)),
     sameRegion_
     (
         sampleWorld_.empty()

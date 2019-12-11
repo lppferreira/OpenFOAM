@@ -287,12 +287,8 @@ protected:
 
     // Protected Member Functions
 
-        //- Optionally allocate communicator
-        static label communicator
-        (
-            const word& myWorld,
-            const word& sampleWorld
-        );
+        //- Optionally allocate a world-local communicator
+        static label communicator(const word& sampleWorld);
 
         //- Lookup mesh
         const polyMesh& lookupMesh(const word& region) const;
@@ -368,7 +364,7 @@ public:
     // Constructors
 
         //- Construct from patch
-        mappedPatchBase(const polyPatch&);
+        explicit mappedPatchBase(const polyPatch&);
 
         //- Construct with offsetMode=non-uniform
         mappedPatchBase
@@ -456,6 +452,9 @@ public:
 
             //- Communicator
             inline label comm() const;
+
+            //- Is world the local world
+            inline bool sameWorld() const;
 
             //- Cached sampleRegion != mesh.name()
             inline bool sameRegion() const;
