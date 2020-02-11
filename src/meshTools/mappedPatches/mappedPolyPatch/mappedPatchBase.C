@@ -94,20 +94,24 @@ Foam::label Foam::mappedPatchBase::communicator
 
     if (!sampleWorld.empty())
     {
-        const wordList& procWorlds = UPstream::worlds();
-
-        if (!procWorlds.found(sampleWorld))
+        if (!UPstream::allWorlds().found(sampleWorld))
         {
             FatalErrorInFunction << "Cannot find sampleWorld " << sampleWorld
-                << " in set of worlds " << procWorlds
+                << " in set of worlds " << UPstream::allWorlds()
                 << exit(FatalError);
         }
 
-        DynamicList<label> subRanks(procWorlds.size());
-        forAll(procWorlds, proci)
+        const labelList& worldIDs = UPstream::worldIDs();
+
+        DynamicList<label> subRanks(worldIDs.size());
+        forAll(worldIDs, proci)
         {
-            const word& world = procWorlds[proci];
-            if (world == UPstream::myWorld() || world == sampleWorld)
+            const label worldi = worldIDs[proci];
+            if
+            (
+                worldi == UPstream::myWorldID()
+             || UPstream::allWorlds()[worldi] == sampleWorld
+            )
             {
                 subRanks.append(proci);
             }
@@ -743,21 +747,9 @@ void Foam::mappedPatchBase::calcMapping() const
         }
     }
 
-    // Collect per processor the world
-    const label nProcs = Pstream::nProcs(comm_);
-
-    DynamicList<word> allSampleWorlds(nProcs);
-    for (const auto& sampleWorld : UPstream::worlds())
-    {
-        if (!allSampleWorlds.found(sampleWorld))
-        {
-            allSampleWorlds.append(sampleWorld);
-        }
-    }
-
     // Get local world and world-to-sample in index form
-    const label myWorld = allSampleWorlds.find(UPstream::myWorld());
-    const label mySampleWorld = allSampleWorlds.find(sampleWorld_);
+    const label myWorld = Pstream::myWorldID();
+    const label mySampleWorld = Pstream::allWorlds().find(sampleWorld_);
 
 
     // Get global list of all samples and the processor and face they come from.
@@ -1028,36 +1020,78 @@ void Foam::mappedPatchBase::calcAMI() const
         return;
     }
 
-    const polyPatch& nbr = samplePolyPatch();
-
-    // Transform neighbour patch to local system
-    pointField nbrPoints(samplePoints(nbr.localPoints()));
-
-    primitivePatch nbrPatch0
-    (
-        SubList<face>
-        (
-            nbr.localFaces(),
-            nbr.size()
-        ),
-        nbrPoints
-    );
-
-
-    if (debug)
+    // Check if running locally
+    if (sampleWorld_.empty())
     {
-        OFstream os(patch_.name() + "_neighbourPatch-org.obj");
-        meshTools::writeOBJ(os, samplePolyPatch().localFaces(), nbrPoints);
+        const polyPatch& nbr = samplePolyPatch();
 
-        OFstream osN(patch_.name() + "_neighbourPatch-trans.obj");
-        meshTools::writeOBJ(osN, nbrPatch0, nbrPoints);
+        // Transform neighbour patch to local system
+        pointField nbrPoints(samplePoints(nbr.localPoints()));
 
-        OFstream osO(patch_.name() + "_ownerPatch.obj");
-        meshTools::writeOBJ(osO, patch_.localFaces(), patch_.localPoints());
+        primitivePatch nbrPatch0
+        (
+            SubList<face>
+            (
+                nbr.localFaces(),
+                nbr.size()
+            ),
+            nbrPoints
+        );
+
+
+        if (debug)
+        {
+            OFstream os(patch_.name() + "_neighbourPatch-org.obj");
+            meshTools::writeOBJ(os, samplePolyPatch().localFaces(), nbrPoints);
+
+            OFstream osN(patch_.name() + "_neighbourPatch-trans.obj");
+            meshTools::writeOBJ(osN, nbrPatch0, nbrPoints);
+
+            OFstream osO(patch_.name() + "_ownerPatch.obj");
+            meshTools::writeOBJ(osO, patch_.localFaces(), patch_.localPoints());
+        }
+
+        // Construct/apply AMI interpolation to determine addressing and weights
+        AMIPtr_->calculate(patch_, nbrPatch0, surfPtr());
     }
+    else
+    {
+        faceList nbrFaces;
+        pointField nbrPoints;
+        if (sampleWorld() == UPstream::myWorld())
+        {
+            const polyPatch& nbr = samplePolyPatch();
+            nbrFaces = nbr.localFaces();
+            nbrPoints = samplePoints(nbr.localPoints());
+        }
+        else
+        {
+            // Leave empty
+        }
 
-    // Construct/apply AMI interpolation to determine addressing and weights
-    AMIPtr_->calculate(patch_, nbrPatch0, surfPtr());
+        primitivePatch nbrPatch0
+        (
+            SubList<face>
+            (
+                nbrFaces,
+                nbrFaces.size()
+            ),
+            nbrPoints
+        );
+
+        // Change to use ALL processors communicator
+        const label oldWorldComm = Pstream::worldComm;
+        Pstream::worldComm = comm_;
+
+        const label oldComm(Pstream::warnComm);
+        Pstream::warnComm = UPstream::worldComm;
+
+        // Construct/apply AMI interpolation to determine addressing and weights
+        AMIPtr_->calculate(patch_, nbrPatch0, surfPtr());
+
+        Pstream::warnComm = oldComm;
+        Pstream::worldComm = oldWorldComm;
+    }
 }
 
 
