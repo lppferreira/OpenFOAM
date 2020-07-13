@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2016 OpenFOAM Foundation
-    Copyright (C) 2019 OpenCFD Ltd.
+    Copyright (C) 2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -119,12 +119,14 @@ bool Foam::dynamicMotionSolverListFvMesh::update()
 {
     if (motionSolvers_.size())
     {
+        const pointField& initPoints = lookupObjectRef<pointField>("points0");
+
         // Accumulated displacement
-        pointField disp(motionSolvers_[0].newPoints() - fvMesh::points());
+        pointField disp(motionSolvers_[0].newPoints() - initPoints);
 
         for (label i = 1; i < motionSolvers_.size(); i++)
         {
-            disp += motionSolvers_[i].newPoints() - fvMesh::points();
+            disp += motionSolvers_[i].newPoints() - initPoints;
         }
 
         fvMesh::movePoints(points() + disp);

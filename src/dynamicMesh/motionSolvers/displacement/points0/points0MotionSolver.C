@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
     Copyright (C) 2012-2017 OpenFOAM Foundation
-    Copyright (C) 2015-2019 OpenCFD Ltd.
+    Copyright (C) 2015-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -56,8 +56,7 @@ Foam::IOobject Foam::points0MotionSolver::points0IO(const polyMesh& mesh)
         polyMesh::meshSubDir,
         mesh,
         IOobject::MUST_READ,
-        IOobject::NO_WRITE,
-        false
+        IOobject::NO_WRITE
     );
 
     // If points0 are located in constant directory, verify their existence
@@ -117,6 +116,7 @@ Foam::points0MotionSolver::points0MotionSolver
                 )
             << exit(FatalError);
     }
+    points0_.rename("points0");
 }
 
 
