@@ -122,11 +122,23 @@ bool Foam::dynamicMotionSolverListFvMesh::update()
         const pointField& initPoints = lookupObjectRef<pointField>("points0");
 
         // Accumulated displacement
-        pointField disp(motionSolvers_[0].newPoints() - initPoints);
+        pointField disp(motionSolvers_[0].newPoints() - fvMesh::points());
 
         for (label i = 1; i < motionSolvers_.size(); i++)
         {
-            disp += motionSolvers_[i].newPoints() - initPoints;
+            tmp<pointField> dispI(motionSolvers_[i].newPoints());
+
+            forAll (disp, j)
+            {
+                if (mag(disp[j]) > 0)
+                {
+                    disp[j] += dispI()[j] - initPoints[j];
+                }
+                else
+                {
+                    disp[j] += dispI()[j] - fvMesh::points()[j];
+                }
+            }
         }
 
         fvMesh::movePoints(points() + disp);
