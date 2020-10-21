@@ -1496,6 +1496,13 @@ void Foam::argList::parse
                 << Pstream::commsTypeNames[Pstream::defaultCommsType] << nl
                 << "    polling iterations : " << Pstream::nPollProcInterfaces
                 << endl;
+            if (UPstream::allWorlds().size() > 1)
+            {
+                Info<< "    allWorlds          : "
+                    << flatOutput(UPstream::allWorlds()) << nl
+                    << "    myWorld            : " << UPstream::myWorld()
+                    << endl;
+            }
         }
     }
 

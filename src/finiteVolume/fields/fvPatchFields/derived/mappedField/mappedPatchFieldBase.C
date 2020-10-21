@@ -48,6 +48,133 @@ Type Foam::mappedPatchFieldBase<Type>::getAverage
 }
 
 
+template<class Type>
+template<class T>
+void Foam::mappedPatchFieldBase<Type>::storeField
+(
+    const objectRegistry& obr,
+    const word& region,
+    const word& patch,
+    const labelListList& procToMap,
+    const word& fieldName,
+    const Field<T>& fld
+) const
+{
+    // Store my data onto database
+    //const label myRank = Pstream::myProcNo(0);  // comm_
+    const label nProcs = Pstream::nProcs(0);    // comm_
+
+    for (label domain = 0; domain < nProcs; domain++)
+    {
+        const labelList& map = procToMap[domain];
+        if (map.size())
+        {
+            const Field<T> subFld(fld, map);
+
+            const objectRegistry& subObr = mappedPatchBase::subRegistry
+            (
+                obr,
+                mapper_.sendPath(domain)
+              / region
+              / patch
+            );
+
+            mappedPatchBase::storeField
+            (
+                const_cast<objectRegistry&>(subObr),
+                fieldName,
+                subFld
+            );
+        }
+    }
+}
+
+
+template<class Type>
+template<class T>
+void Foam::mappedPatchFieldBase<Type>::retrieveField
+(
+    const objectRegistry& obr,
+    const word& region,
+    const word& patch,
+    const labelListList& procToMap,
+    const word& fieldName,
+    Field<T>& fld
+) const
+{
+    // Store my data onto database
+    //const label myRank = Pstream::myProcNo(0);  // comm_
+    const label nProcs = Pstream::nProcs(0);    // comm_
+
+    for (label domain = 0; domain < nProcs; domain++)
+    {
+        const labelList& map = procToMap[domain];
+        if (map.size())
+        {
+            const objectRegistry& subObr = mappedPatchBase::subRegistry
+            (
+                obr,
+                mapper_.receivePath(domain)
+              / region
+              / patch
+            );
+
+            const IOField<T>& subFld = subObr.lookupObject<IOField<T>>
+            (
+                fieldName
+            );
+
+            //Pout<< "*** RETRIEVING :"
+            //    << " field:" << fieldName << " values:" << flatOutput(subFld)
+            //    << " from:" << subObr.objectPath() << endl;
+ 
+            UIndirectList<T>(fld, map) = subFld;
+        }
+    }
+}
+
+
+template<class Type>
+void Foam::mappedPatchFieldBase<Type>::initRetrieveField
+(
+    const objectRegistry& obr,
+    const word& region,
+    const word& patch,
+    const mapDistribute& map,
+    const word& fieldName,
+    const Field<Type>& fld
+) const
+{
+    // Store my data onto database
+    //const label myRank = Pstream::myProcNo(0);  // comm_
+    const label nProcs = Pstream::nProcs(0);    // comm_
+
+    for (label domain = 0; domain < nProcs; domain++)
+    {
+        const labelList& constructMap = map.constructMap()[domain];
+        if (constructMap.size())
+        {
+            const objectRegistry& subObr = mappedPatchBase::subRegistry
+            (
+                obr,
+                mapper_.receivePath(domain)
+              / region
+              / patch
+            );
+
+            const Field<Type> receiveFld(fld, constructMap);
+
+            mappedPatchBase::storeField
+            (
+                const_cast<objectRegistry&>(subObr),
+                fieldName,
+                receiveFld
+            );
+        }
+    }
+}
+
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
@@ -95,6 +222,60 @@ Foam::mappedPatchFieldBase<Type>::mappedPatchFieldBase
     if (mapper_.mode() == mappedPatchBase::NEARESTCELL)
     {
         dict.readEntry("interpolationScheme", interpolationScheme_);
+    }
+
+    // If running in database mode make sure to push my field
+    // onto the database as early as possible
+    switch (mapper_.mode())
+    {
+        case mappedPatchBase::NEARESTPATCHFACE:
+        {
+            if (mapper_.sampleDatabase())
+            {
+                // Store my data on send buffers
+                storeField
+                (
+                    patchField_.internalField().time(),
+                    patchField_.patch().boundaryMesh().mesh().name(),
+                    patchField_.patch().name(),
+                    mapper_.map().subMap(),
+                    patchField_.internalField().name(),
+                    patchField_
+                );
+
+                // Store my data on receive buffers (reverse of storeField;
+                // i.e. retrieveField will obtain patchField)
+                initRetrieveField
+                (
+                    patchField_.internalField().time(),
+                    mapper_.sampleRegion(),
+                    mapper_.samplePatch(),
+                    mapper_.map(),
+                    fieldName_,
+                    patchField_
+                );
+            }
+
+
+            //Pout<< "--- constructor mappedPatchFieldBase ---" << endl;
+            //dictionary d;
+            //mappedPatchBase::writeDict
+            //(
+            //    mappedPatchBase::subRegistry
+            //    (
+            //        patchField_.internalField().time(),
+            //        mapper_.sampleDatabasepath()
+            //    ),
+            //    d
+            //);
+            //DebugVar(d);
+            //Pout<< "--- ENDOF constructor mappedPatchFieldBase ---" << endl;
+
+            break;
+        }
+        default:
+        {
+        }
     }
 }
 
@@ -189,13 +370,48 @@ Foam::mappedPatchFieldBase<Type>::sampleField() const
 
 template<class Type>
 template<class T>
-Foam::tmp<Foam::Field<T>>
+void Foam::mappedPatchFieldBase<Type>::distribute(Field<T>& newValues) const
+{
+    if (mapper_.sampleDatabase())
+    {
+        // Store my data on send buffers
+        storeField
+        (
+            patchField_.internalField().time(),
+            patchField_.patch().boundaryMesh().mesh().name(),
+            patchField_.patch().name(),
+            mapper_.map().subMap(),
+            patchField_.internalField().name(),
+            newValues
+        );
+        // Construct my data from receive buffers
+        newValues.setSize(mapper_.map().constructSize());
+        retrieveField
+        (
+            patchField_.internalField().time(),
+            mapper_.sampleRegion(),
+            mapper_.samplePatch(),
+            mapper_.map().constructMap(),
+            fieldName_,
+            newValues
+        );
+    }
+    else
+    {
+        mapper_.distribute(newValues);
+    }
+}
+
+
+template<class Type>
+//template<class T>
+Foam::tmp<Foam::Field<Type>>
 Foam::mappedPatchFieldBase<Type>::mappedField
 (
-    const GeometricField<T, fvPatchField, volMesh>& fld
+//    const GeometricField<T, fvPatchField, volMesh>& fld
 ) const
 {
-    //typedef GeometricField<Type, fvPatchField, volMesh> fieldType;
+    typedef GeometricField<Type, fvPatchField, volMesh> fieldType;
 
     // Since we're inside initEvaluate/evaluate there might be processor
     // comms underway. Change the tag we use.
@@ -212,15 +428,17 @@ Foam::mappedPatchFieldBase<Type>::mappedField
     {
         case mappedPatchBase::NEARESTCELL:
         {
+            const fieldType& fld = sampleField();
             const mapDistribute& distMap = mapper_.map();
 
             if (interpolationScheme_ != interpolationCell<Type>::typeName)
             {
-                if (!mapper_.sameWorld())
+                if (!mapper_.sameWorld() || mapper_.sampleDatabase())
                 {
                     FatalErrorInFunction
                         << "Interpolating cell values from different world"
-                        << " currently not supported" << exit(FatalError);
+                        << " or database currently not supported"
+                        << exit(FatalError);
                 }
 
                 const fvMesh& nbrMesh =
@@ -274,11 +492,11 @@ Foam::mappedPatchFieldBase<Type>::mappedField
         case mappedPatchBase::NEARESTPATCHFACE:
         case mappedPatchBase::NEARESTPATCHFACEAMI:
         {
-            const mapDistribute& distMap = mapper_.map();
             if (mapper_.sameWorld())
             {
                 const fvMesh& nbrMesh =
                     refCast<const fvMesh>(mapper_.sampleMesh());
+                const fieldType& fld = sampleField();
 
                 const label nbrPatchID =
                     nbrMesh.boundaryMesh().findPatchID(mapper_.samplePatch());
@@ -302,7 +520,7 @@ Foam::mappedPatchFieldBase<Type>::mappedField
                 // do all the work
                 newValues = patchField_;
             }
-            mapper_.distribute(newValues);
+            distribute(newValues);
 
             break;
         }
@@ -313,6 +531,7 @@ Foam::mappedPatchFieldBase<Type>::mappedField
             {
                 const fvMesh& nbrMesh =
                     refCast<const fvMesh>(mapper_.sampleMesh());
+                const fieldType& fld = sampleField();
 
                 allValues.setSize(nbrMesh.nFaces(), Zero);
 
@@ -334,9 +553,12 @@ Foam::mappedPatchFieldBase<Type>::mappedField
                 // do all the work
                 allValues.setSize(thisMesh.nFaces(), Zero);
 
-                const auto& nbrField = fld;
+                const fieldType& thisFld = dynamic_cast<const fieldType&>
+                (
+                    patchField_.internalField()
+                );
 
-                for (const fvPatchField<Type>& pf : fld.boundaryField())
+                for (const fvPatchField<Type>& pf : thisFld.boundaryField())
                 {
                     label faceStart = pf.patch().start();
 
@@ -347,7 +569,7 @@ Foam::mappedPatchFieldBase<Type>::mappedField
                 }
             }
 
-            mapper_.distribute(allValues);
+            distribute(allValues);
             newValues.transfer(allValues);
 
             break;
@@ -383,13 +605,13 @@ Foam::mappedPatchFieldBase<Type>::mappedField
 }
 
 
-template<class Type>
-Foam::tmp<Foam::Field<Type>>
-Foam::mappedPatchFieldBase<Type>::mappedField() const
-{
-    const GeometricField<Type, fvPatchField, volMesh>& fld = sampleField();
-    return mappedField<Type>(fld);
-}
+//template<class Type>
+//Foam::tmp<Foam::Field<Type>>
+//Foam::mappedPatchFieldBase<Type>::mappedField() const
+//{
+//    const GeometricField<Type, fvPatchField, volMesh>& fld = sampleField();
+//    return mappedField<Type>(fld);
+//}
 
 
 template<class Type>
@@ -457,7 +679,7 @@ Foam::mappedPatchFieldBase<Type>::mappedWeightField() const
     const int oldTag = UPstream::msgType();
     UPstream::msgType() = oldTag+1;
 
-    mapper_.distribute(nbrKDelta);
+    distribute(nbrKDelta);
 
     // Restore tag
     UPstream::msgType() = oldTag;
@@ -521,7 +743,7 @@ void Foam::mappedPatchFieldBase<Type>::mappedWeightField
     int oldTag = UPstream::msgType();
     UPstream::msgType() = oldTag+1;
 
-    mapper_.distribute(nbrWeights.ref());
+    distribute(nbrWeights.ref());
 
     // Restore tag
     UPstream::msgType() = oldTag;
@@ -539,7 +761,10 @@ void Foam::mappedPatchFieldBase<Type>::write(Ostream& os) const
         os.writeEntry("average", average_);
     }
 
-    os.writeEntry("interpolationScheme", interpolationScheme_);
+    if (mapper_.mode() == mappedPatchBase::NEARESTCELL)
+    {
+        os.writeEntry("interpolationScheme", interpolationScheme_);
+    }
 }
 
 

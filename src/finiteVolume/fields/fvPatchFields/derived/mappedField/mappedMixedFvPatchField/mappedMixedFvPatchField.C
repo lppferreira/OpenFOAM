@@ -2,8 +2,10 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2019 OpenCFD Ltd.
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2019-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -58,7 +60,7 @@ Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
     mixedFvPatchField<Type>(p, iF, dict),
     mappedPatchBase(p.patch(), dict),
     mappedPatchFieldBase<Type>(*this, *this, dict),
-    weightFieldName_(dict.get<word>("weightField"))
+    weightFieldName_(dict.getOrDefault<word>("weightField", word::null))
 {
     mixedFvPatchField<Type>::operator=
     (
@@ -252,7 +254,7 @@ void Foam::mappedMixedFvPatchField<Type>::write(Ostream& os) const
 {
     mappedPatchBase::write(os);
     mappedPatchFieldBase<Type>::write(os);
-    os.writeEntry("weightField", weightFieldName_);
+    os.writeEntryIfDifferent<word>("weightField", word::null, weightFieldName_);
     mixedFvPatchField<Type>::write(os);
 }
 

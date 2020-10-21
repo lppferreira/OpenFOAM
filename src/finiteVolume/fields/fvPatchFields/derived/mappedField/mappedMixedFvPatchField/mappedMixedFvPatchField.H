@@ -2,8 +2,10 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2019 OpenCFD Ltd.
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2019-2020 OpenCFD Ltd.
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
@@ -39,7 +41,7 @@ Usage
     \table
         Property     | Description                      | Required | Default
         field        | Name of field to be mapped       | no  | this field name
-        weight       | Name of field to use as weight   | yes |
+        weightField  | Name of field to use as weight   | no |
         setAverage   | Use average value                | no  | false |
         average      | Average value to use if \c setAverage = yes | partly |
     \endtable
@@ -132,26 +134,6 @@ public:
             const DimensionedField<Type, volMesh>&,
             const dictionary&
         );
-
-//        //- Construct from patch, internal field and distance for normal type
-//        //  sampling
-//        mappedMixedFvPatchField
-//        (
-//            const fvPatch&,
-//            const DimensionedField<Type, volMesh>&,
-//
-//            // mappedPatchBase
-//            const word& sampleRegion,
-//            const sampleMode sampleMode,
-//            const word& samplePatch,
-//            const scalar distance,
-//
-//            // My settings
-//            const word& fieldName,
-//            const bool setAverage,
-//            const Type average,
-//            const word& interpolationScheme
-//        );
 
         //- Construct by mapping given
         //  mappedMixedFvPatchField

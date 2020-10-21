@@ -162,4 +162,125 @@ void Foam::mappedPatchBase::reverseDistribute
 }
 
 
+template<class Type>
+bool Foam::mappedPatchBase::writeIOField
+(
+    const regIOobject& obj,
+    dictionary& dict
+)
+{
+    const auto* fldPtr = isA<IOField<Type>>(obj);
+    if (fldPtr)
+    {
+        const auto& fld = *fldPtr;
+
+        token tok;
+        tok = new token::Compound<List<Type>>(fld);
+
+        primitiveEntry* pePtr = new primitiveEntry
+        (
+            fld.name(),
+            tokenList
+            (
+                one(),
+                std::move(tok)
+            )
+        );
+
+        dict.set(pePtr);
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+
+template<class Type>
+bool Foam::mappedPatchBase::constructIOField
+(
+    const word& name,
+    token& tok,
+    Istream& is,
+    objectRegistry& obr
+)
+{
+    const word tag = "List<" + word(pTraits<Type>::typeName) + '>';
+
+    if (tok.isCompound() && tok.compoundToken().type() == tag)
+    {
+        IOField<Type>* fldPtr = obr.findObject<IOField<Type>>(name);
+        if (fldPtr)
+        {
+            fldPtr->transfer
+            (
+                dynamicCast<token::Compound<List<Type>>>
+                (
+                    tok.transferCompoundToken(is)
+                )
+            );
+        }
+        else
+        {
+            IOField<Type>* fldPtr = new IOField<Type>
+            (
+                IOobject
+                (
+                    name,
+                    obr,
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE
+                ),
+                0
+            );
+            fldPtr->transfer
+            (
+                dynamicCast<token::Compound<List<Type>>>
+                (
+                    tok.transferCompoundToken(is)
+                )
+            );
+            objectRegistry::store(fldPtr);
+        }
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+
+template<class Type>
+void Foam::mappedPatchBase::storeField
+(
+    objectRegistry& obr,
+    const word& fieldName,
+    const Field<Type>& values
+)
+{
+    IOField<Type>* fldPtr = obr.findObject<IOField<Type>>(fieldName);
+    if (fldPtr)
+    {
+        *fldPtr = values;
+    }
+    else
+    {
+        fldPtr = new IOField<Type>
+        (
+            IOobject
+            (
+                fieldName,
+                obr,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            values
+        );
+        objectRegistry::store(fldPtr);
+    }
+}
+
+
 // ************************************************************************* //

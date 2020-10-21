@@ -46,6 +46,7 @@ License
 #include "treeDataCell.H"
 #include "DynamicField.H"
 #include "faceAreaWeightAMI.H"
+#include "OTstream.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -84,6 +85,40 @@ Foam::mappedPatchBase::offsetModeNames_
 
 // * * * * * * * * * * * * * Private Member Functions  * * * * * * * * * * * //
 
+Foam::autoPtr<Foam::fileName> Foam::mappedPatchBase::readDatabase
+(
+    const dictionary& dict
+)
+{
+    autoPtr<fileName> dbNamePtr_;
+
+    if (dict.found("sampleDatabase"))
+    {
+        const bool useDb = dict.get<bool>("sampleDatabase");
+        if (useDb)
+        {
+            dbNamePtr_.set
+            (
+                new fileName
+                (
+                    dict.lookupOrDefault<fileName>
+                    (
+                        "sampleDatabasePath",
+                        fileName::null
+                    )
+                )
+            );
+        }
+    }
+    else if (dict.found("sampleDatabasePath"))
+    {
+        dbNamePtr_.set(new fileName(dict.get<fileName>("sampleDatabasePath")));
+    }
+
+    return dbNamePtr_;
+}
+
+
 Foam::label Foam::mappedPatchBase::communicator
 (
     const word& sampleWorld
@@ -120,9 +155,14 @@ Foam::label Foam::mappedPatchBase::communicator
         // Allocate new communicator with parent 0 (= world)
         comm = UPstream::allocateCommunicator(0, subRanks, true);
 
-        Pout<< "*** myWorld:" << UPstream::myWorld()
-            << " sampleWorld:" << sampleWorld
-            << " using subRanks:" << subRanks << " new comm:" << comm << endl;
+        if (debug)
+        {
+            Pout<< "mappedPatchBase::communicator :"
+                << " myWorld:" << UPstream::myWorld()
+                << " sampleWorld:" << sampleWorld
+                << " using subRanks:" << subRanks
+                << " new comm:" << comm << endl;
+        }
     }
 
     return comm;
@@ -551,8 +591,6 @@ void Foam::mappedPatchBase::findLocalSamples
 }
 
 
-// Find the processor/cell containing the samples. Does not account
-// for samples being found in two processors.
 void Foam::mappedPatchBase::findSamples
 (
     const sampleMode mode,
@@ -566,6 +604,10 @@ void Foam::mappedPatchBase::findSamples
     pointField& sampleLocations
 ) const
 {
+    // Find the processor/cell containing the samples. Does not account
+    // for samples being found in two processors.
+
+
     const label myRank = Pstream::myProcNo(comm_);
     const label nProcs = Pstream::nProcs(comm_);
 
@@ -611,7 +653,6 @@ void Foam::mappedPatchBase::findSamples
                 localMap.append(samplei);
             }
         }
-        DebugVar(localMap.size());
 
         if (localMap.size())
         {
@@ -622,9 +663,13 @@ void Foam::mappedPatchBase::findSamples
             const word localOrigPatch(samplePatches[localOrigProcs[0]]);
             const word localOrigRegion(sampleRegions[localOrigProcs[0]]);
             List<nearInfoWorld> localNearest(localSamples.size());
-            Pout<< "*** Searching locally for " << localSamples.size()
-                << " samples on region:" << localOrigRegion
-                << " on patch:" << localOrigPatch << endl;
+
+            if (debug)
+            {
+                Pout<< "*** Searching locally for " << localSamples.size()
+                    << " samples on region:" << localOrigRegion
+                    << " on patch:" << localOrigPatch << endl;
+            }
             findLocalSamples
             (
                 mode,
@@ -845,7 +890,7 @@ void Foam::mappedPatchBase::calcMapping() const
             pointField subSampleLocations;
             findSamples
             (
-                mode_,
+                NEARESTONLYCELL,
                 myWorld,        // my world (in index form)
 
                 pointField(samples, subMap),
@@ -1095,16 +1140,36 @@ void Foam::mappedPatchBase::calcAMI() const
 }
 
 
+const Foam::objectRegistry& Foam::mappedPatchBase::subRegistry
+(
+    const objectRegistry& obr,
+    const wordList& names,
+    const label index
+)
+{
+    const objectRegistry& sub = obr.subRegistry(names[index], true);
+    if (index == names.size()-1)
+    {
+        return sub;
+    }
+    else
+    {
+        return subRegistry(sub, names, index+1);
+    }
+}
+
+
 // * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * * * * * //
 
 Foam::mappedPatchBase::mappedPatchBase(const polyPatch& pp)
 :
     patch_(pp),
-    sampleWorld_(""),
+    sampleWorld_(word::null),
     sampleRegion_(patch_.boundaryMesh().mesh().name()),
     mode_(NEARESTPATCHFACE),
-    samplePatch_(""),
+    samplePatch_(word::null),
     coupleGroup_(),
+    sampleDatabasePtr_(),
     offsetMode_(UNIFORM),
     offset_(Zero),
     offsets_(pp.size(), offset_),
@@ -1133,11 +1198,12 @@ Foam::mappedPatchBase::mappedPatchBase
 )
 :
     patch_(pp),
-    sampleWorld_(""),
+    sampleWorld_(word::null),
     sampleRegion_(sampleRegion),
     mode_(mode),
     samplePatch_(samplePatch),
     coupleGroup_(),
+    sampleDatabasePtr_(),
     offsetMode_(NONUNIFORM),
     offset_(Zero),
     offsets_(offsets),
@@ -1166,11 +1232,12 @@ Foam::mappedPatchBase::mappedPatchBase
 )
 :
     patch_(pp),
-    sampleWorld_(""),
+    sampleWorld_(word::null),
     sampleRegion_(sampleRegion),
     mode_(mode),
     samplePatch_(samplePatch),
     coupleGroup_(),
+    sampleDatabasePtr_(),
     offsetMode_(UNIFORM),
     offset_(offset),
     offsets_(0),
@@ -1199,11 +1266,12 @@ Foam::mappedPatchBase::mappedPatchBase
 )
 :
     patch_(pp),
-    sampleWorld_(""),
+    sampleWorld_(word::null),
     sampleRegion_(sampleRegion),
     mode_(mode),
     samplePatch_(samplePatch),
     coupleGroup_(),
+    sampleDatabasePtr_(),
     offsetMode_(NORMAL),
     offset_(Zero),
     offsets_(0),
@@ -1229,11 +1297,12 @@ Foam::mappedPatchBase::mappedPatchBase
 )
 :
     patch_(getPatch(pp, dict)),
-    sampleWorld_(dict.getOrDefault<word>("sampleWorld", "")),
-    sampleRegion_(dict.getOrDefault<word>("sampleRegion", "")),
+    sampleWorld_(dict.getOrDefault<word>("sampleWorld", word::null)),
+    sampleRegion_(dict.getOrDefault<word>("sampleRegion", word::null)),
     mode_(sampleModeNames_.get("sampleMode", dict)),
-    samplePatch_(dict.getOrDefault<word>("samplePatch", "")),
+    samplePatch_(dict.getOrDefault<word>("samplePatch", word::null)),
     coupleGroup_(dict),
+    sampleDatabasePtr_(readDatabase(dict)),
     offsetMode_(UNIFORM),
     offset_(Zero),
     offsets_(0),
@@ -1318,11 +1387,12 @@ Foam::mappedPatchBase::mappedPatchBase
 )
 :
     patch_(pp),
-    sampleWorld_(dict.getOrDefault<word>("sampleWorld", "")),
-    sampleRegion_(dict.getOrDefault<word>("sampleRegion", "")),
+    sampleWorld_(dict.getOrDefault<word>("sampleWorld", word::null)),
+    sampleRegion_(dict.getOrDefault<word>("sampleRegion", word::null)),
     mode_(mode),
-    samplePatch_(dict.getOrDefault<word>("samplePatch", "")),
-    coupleGroup_(dict), //dict.getOrDefault<word>("coupleGroup", "")),
+    samplePatch_(dict.getOrDefault<word>("samplePatch", word::null)),
+    coupleGroup_(dict), //dict.getOrDefault<word>("coupleGroup", word::null)),
+    sampleDatabasePtr_(readDatabase(dict)),
     offsetMode_(UNIFORM),
     offset_(Zero),
     offsets_(0),
@@ -1382,6 +1452,7 @@ Foam::mappedPatchBase::mappedPatchBase
     mode_(mpb.mode_),
     samplePatch_(mpb.samplePatch_),
     coupleGroup_(mpb.coupleGroup_),
+    sampleDatabasePtr_(mpb.sampleDatabasePtr_),
     offsetMode_(mpb.offsetMode_),
     offset_(mpb.offset_),
     offsets_(mpb.offsets_),
@@ -1409,6 +1480,7 @@ Foam::mappedPatchBase::mappedPatchBase
     mode_(mpb.mode_),
     samplePatch_(mpb.samplePatch_),
     coupleGroup_(mpb.coupleGroup_),
+    sampleDatabasePtr_(mpb.sampleDatabasePtr_),
     offsetMode_(mpb.offsetMode_),
     offset_(mpb.offset_),
     offsets_
@@ -1486,12 +1558,10 @@ const Foam::polyMesh& Foam::mappedPatchBase::sampleMesh() const
 {
     if (UPstream::myWorld() != sampleWorld_)
     {
-        //FatalErrorInFunction
-        WarningInFunction
+        FatalErrorInFunction
             << "sampleWorld : " << sampleWorld_
             << " is not the current world : " << UPstream::myWorld()
-            //<< exit(FatalError);
-            << endl;
+            << exit(FatalError);
     }
     return lookupMesh(sampleRegion());
 }
@@ -1638,24 +1708,162 @@ Foam::pointIndexHit Foam::mappedPatchBase::facePoint
 }
 
 
+const Foam::objectRegistry& Foam::mappedPatchBase::subRegistry
+(
+    const objectRegistry& obr,
+    const fileName& rawFName
+)
+{
+    // Lookup (and create if non existing) a registry using a '/' separated
+    // path.
+
+    const fileName fName(rawFName.clean());
+    const wordList names(fName.components());
+
+    if (names.empty())
+    {
+        return obr;
+    }
+    else
+    {
+        return subRegistry(obr, names, 0);
+    }
+}
+
+
+Foam::fileName Foam::mappedPatchBase::sendPath
+(
+    const fileName& root,
+    const label proci
+)
+{
+    const word processorName("processor"+Foam::name(proci));
+    return root/"send"/processorName;
+}
+
+
+Foam::fileName Foam::mappedPatchBase::sendPath(const label proci) const
+{
+    return sendPath(sampleDatabasePath(), proci);
+}
+
+
+Foam::fileName Foam::mappedPatchBase::receivePath
+(
+    const fileName& root,
+    const label proci
+)
+{
+    const word processorName("processor"+Foam::name(proci));
+    return root/"receive"/processorName;
+}
+
+
+Foam::fileName Foam::mappedPatchBase::receivePath(const label proci) const
+{
+    return receivePath(sampleDatabasePath(), proci);
+}
+
+
+void Foam::mappedPatchBase::writeDict
+(
+    const objectRegistry& obr,
+    dictionary& dict
+)
+{
+    forAllIters(obr, iter)
+    {
+        regIOobject* objPtr = iter.val();
+        const regIOobject& obj = *objPtr;
+
+        if (isA<objectRegistry>(obj))
+        {
+            dictionary& d = dict.subDictOrAdd(obj.name());
+            writeDict(dynamic_cast<const objectRegistry&>(obj), d);
+        }
+        else if
+        (
+            writeIOField<scalar>(obj, dict)
+         || writeIOField<vector>(obj, dict)
+         || writeIOField<sphericalTensor>(obj, dict)
+         || writeIOField<symmTensor>(obj, dict)
+         || writeIOField<tensor>(obj, dict)
+        )
+        {
+            // IOField specialisation
+        }
+        else
+        {
+            // Not tested. No way of retrieving data anyway ...
+            OTstream os;
+            obj.writeData(os);
+
+            primitiveEntry* pePtr = new primitiveEntry(obj.name(), os.tokens());
+            dict.add(pePtr);
+        }
+    }
+}
+
+
+void Foam::mappedPatchBase::readDict(const dictionary& d, objectRegistry& obr)
+{
+    // Reverse of writeDict - reads fields from dictionary into objectRegistry
+    for (const entry& e : d)
+    {
+        if (e.isDict())
+        {
+            // Add sub registry
+            objectRegistry& sub = const_cast<objectRegistry&>
+            (
+                obr.subRegistry(e.keyword(), true)
+            );
+
+            readDict(e.dict(), sub);
+        }
+        else
+        {
+            ITstream& is = e.stream();
+            token tok(is);
+
+            if
+            (
+                constructIOField<scalar>(e.keyword(), tok, is, obr)
+             || constructIOField<vector>(e.keyword(), tok, is, obr)
+             || constructIOField<sphericalTensor>(e.keyword(), tok, is, obr)
+             || constructIOField<symmTensor>(e.keyword(), tok, is, obr)
+             || constructIOField<tensor>(e.keyword(), tok, is, obr)
+            )
+            {
+                // Done storing field
+            }
+            else
+            {
+                FatalErrorInFunction << "Unsupported type " << e.keyword()
+                    << exit(FatalError);
+            }
+        }
+    }
+}
+
+
 void Foam::mappedPatchBase::write(Ostream& os) const
 {
     os.writeEntry("sampleMode", sampleModeNames_[mode_]);
-    if (!sampleWorld_.empty())
+    os.writeEntryIfDifferent<word>("sampleWorld", word::null, sampleWorld_);
+    os.writeEntryIfDifferent<word>("sampleRegion", word::null, sampleRegion_);
+    os.writeEntryIfDifferent<word>("samplePatch", word::null, samplePatch_);
+
+    if (sampleDatabasePtr_.valid())
     {
-        os.writeEntry("sampleWorld", sampleWorld_);
+        os.writeEntry("sampleDatabase", sampleDatabasePtr_.valid());
+        // Write database path if differing
+        os.writeEntryIfDifferent<fileName>
+        (
+            "sampleDatabasePath",
+            fileName::null,
+            sampleDatabasePtr_()
+        );
     }
-    if (!sampleRegion_.empty())
-    {
-        os.writeEntry("sampleRegion", sampleRegion_);
-    }
-    if (!samplePatch_.empty())
-    {
-        os.writeEntry("samplePatch", samplePatch_);
-    }
-//    os.writeEntryIfDifferent<word>("sampleWorld", sampleWorld_, "");
-//    os.writeEntryIfDifferent<word>("sampleRegion", sampleRegion_, "");
-//    os.writeEntryIfDifferent<word>("samplePatch", samplePatch_, "");
     coupleGroup_.write(os);
 
     if

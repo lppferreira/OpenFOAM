@@ -36,6 +36,10 @@ Description
         // Optional world to sample (default is all)
         //sampleWorld solidSim;
 
+        // Optional explicit coupling (requires functionObject to synchronise
+        // databases. Default is close coupling (bc to bc)
+        //sampleDatabase true;
+
         // Region to sample (default is region0)
         sampleRegion region0;
 
@@ -241,6 +245,9 @@ protected:
         //- PatchGroup (if in sampleMode NEARESTPATCH*)
         const coupleGroupIdentifier coupleGroup_;
 
+        //- Empty or location of database
+        const autoPtr<fileName> sampleDatabasePtr_;
+
         //- How to obtain samples
         offsetMode offsetMode_;
 
@@ -354,6 +361,38 @@ protected:
         //- Calculate AMI interpolator
         void calcAMI() const;
 
+
+        // Database handling
+
+            //- Read optional database name from dictionary
+            static autoPtr<fileName> readDatabase(const dictionary& dict);
+
+            //- Lookup (sub)objectRegistry by following names of sub registries.
+            //- Creates non-existing intermediate ones.
+            static const objectRegistry& subRegistry
+            (
+                const objectRegistry& obr,
+                const wordList& names,
+                const label index
+            );
+
+            //- Attempt to detect an IOField<Type> and write to dictionary
+            template<class Type>
+            static bool writeIOField
+            (
+                const regIOobject& obj,
+                dictionary& dict
+            );
+
+            //- Attempt to read an IOField<Type> and store on objectRegistry
+            template<class Type>
+            static bool constructIOField
+            (
+                const word& name,
+                token& tok,
+                Istream& is,
+                objectRegistry& obr
+            );
 
 public:
 
@@ -495,6 +534,60 @@ public:
                 const label facei,
                 const polyMesh::cellDecomposition
             );
+
+        // For database storage
+
+            inline const fileName& sampleDatabasePath() const
+            {
+                return *sampleDatabasePtr_;
+            }
+
+            inline bool sampleDatabase() const
+            {
+                return sampleDatabasePtr_.valid();
+            }
+
+            //- Helper: return path to store data to be sent to processor i
+            static fileName sendPath(const fileName& root, const label proci);
+
+            virtual fileName sendPath(const label proci) const;
+
+            //- Helper: return path to store data to be received from
+            //- processor i
+            static fileName receivePath
+            (
+                const fileName& root,
+                const label proci
+            );
+
+            virtual fileName receivePath(const label proci) const;
+
+            //- Lookup (sub)objectRegistry from '/' separated path (relative to
+            //- objectRegistry). Creates non-existing intermediate ones.
+            static const objectRegistry& subRegistry
+            (
+                const objectRegistry& obr,
+                const fileName& path
+            );
+
+            //- Store an IOField on the objectRegistry relative to obr
+            template<class Type>
+            static void storeField
+            (
+                objectRegistry& obr,
+                const word& fieldName,
+                const Field<Type>& values
+            );
+
+            //- Convert objectRegistry contents into dictionary
+            static void writeDict
+            (
+                const objectRegistry& obr,
+                dictionary& dict
+            );
+
+            //- (recursively) construct and register IOFields from dictionary
+            static void readDict(const dictionary& d, objectRegistry& obr);
 
 
         // Distribute

@@ -67,6 +67,7 @@ namespace Foam
 // Forward declarations
 class mappedPatchBase;
 template<class> class interpolation;
+class mapDistribute;
 
 /*---------------------------------------------------------------------------*\
                     Class mappedPatchFieldBase Declaration
@@ -102,6 +103,20 @@ protected:
 
         //- Interpolation scheme to use for nearestcell mode
         word interpolationScheme_;
+
+
+    // Protected Member Functions
+
+        //- Construct field from registered elements
+        void initRetrieveField
+        (
+            const objectRegistry& obr,
+            const word& region,
+            const word& patch,
+            const mapDistribute& map,
+            const word& fieldName,
+            const Field<Type>& fld
+        ) const;
 
 
 public:
@@ -165,13 +180,6 @@ public:
         //- Field to sample. Either on my or nbr mesh
         const GeometricField<Type, fvPatchField, volMesh>& sampleField() const;
 
-        //- Map given volField onto *this patch
-        template<class T>
-        tmp<Field<T>> mappedField
-        (
-            const GeometricField<T, fvPatchField, volMesh>& fld
-        ) const;
-
         //- Map sampleField onto *this patch
         virtual tmp<Field<Type>> mappedField() const;
 
@@ -191,6 +199,38 @@ public:
 
         //- Write
         virtual void write(Ostream& os) const;
+
+
+        // Helpers
+
+            //- Store elements of field onto (sub) registry
+            template<class T>
+            void storeField
+            (
+                const objectRegistry& obr,
+                const word& region,
+                const word& patch,
+                const labelListList& procToMap,
+                const word& fieldName,
+                const Field<T>& fld
+            ) const;
+
+            //- Construct field from registered elements
+            template<class T>
+            void retrieveField
+            (
+                const objectRegistry& obr,
+                const word& region,
+                const word& patch,
+                const labelListList& procToMap,
+                const word& fieldName,
+                Field<T>& fld
+            ) const;
+
+            //- Wrapper for mapDistribute::distribute that knows about
+            //- dabase mapping
+            template<class T>
+            void distribute(Field<T>& newValues) const;
 };
 
 
