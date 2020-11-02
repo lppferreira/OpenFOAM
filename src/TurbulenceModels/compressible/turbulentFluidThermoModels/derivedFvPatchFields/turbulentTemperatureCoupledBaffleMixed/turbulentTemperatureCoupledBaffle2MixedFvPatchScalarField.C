@@ -59,7 +59,7 @@ turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField
     ),
     mappedPatchFieldBase<scalar>
     (
-        refCast<const mappedPatchBase>(p.patch()),
+        mappedPatchFieldBase<scalar>::mapper(p, iF),
         *this
     ),
     TnbrName_("undefined-Tnbr"),
@@ -86,7 +86,7 @@ turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField
     temperatureCoupledBase(patch(), ptf),
     mappedPatchFieldBase<scalar>
     (
-        refCast<const mappedPatchBase>(p.patch()),
+        mappedPatchFieldBase<scalar>::mapper(p, iF),
         *this,
         ptf
     ),
@@ -109,7 +109,7 @@ turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField
     temperatureCoupledBase(patch(), dict),
     mappedPatchFieldBase<scalar>
     (
-        refCast<const mappedPatchBase>(p.patch()),
+        mappedPatchFieldBase<scalar>::mapper(p, iF),
         *this,
         dict
     ),
@@ -159,6 +159,23 @@ turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField
         refGrad() = 0.0;
         valueFraction() = 1.0;
     }
+
+    //DebugVar(static_cast<scalarField&>(*this));
+    //DebugVar(refValue());
+    //DebugVar(refGrad());
+    //DebugVar(valueFraction());
+
+    // Store patch value as initial guess when running in database mode
+    mappedPatchFieldBase<scalar>::initRetrieveField
+    (
+        this->internalField().name(),
+        *this
+    );
+    mappedPatchFieldBase<scalar>::initRetrieveField
+    (
+        this->internalField().name() + "_weights",
+        this->patch().deltaCoeffs()
+    );
 }
 
 
@@ -173,7 +190,7 @@ turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField
     temperatureCoupledBase(patch(), wtcsf),
     mappedPatchFieldBase<scalar>
     (
-        refCast<const mappedPatchBase>(patch().patch()),
+        mappedPatchFieldBase<scalar>::mapper(patch(), iF),
         *this,
         wtcsf
     ),
@@ -194,7 +211,7 @@ turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField
     temperatureCoupledBase(patch(), wtcsf),
     mappedPatchFieldBase<scalar>
     (
-        refCast<const mappedPatchBase>(patch().patch()),
+        mappedPatchFieldBase<scalar>::mapper(patch(), wtcsf.internalField()),
         *this,
         wtcsf
     ),
@@ -221,52 +238,18 @@ void turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField::updateCoeffs()
 
     // Get the coupling information from the mappedPatchBase
     const mappedPatchBase& mpp =
-        refCast<const mappedPatchBase>(patch().patch());
-
-//    const polyMesh& nbrMesh = mpp.sampleMesh();
-//    const label samplePatchi = mpp.samplePolyPatch().index();
-//    const fvPatch& nbrPatch =
-//        refCast<const fvMesh>(nbrMesh).boundary()[samplePatchi];
-//
-//    // Calculate the temperature by harmonic averaging
-//    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//
-//    const turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField& nbrField =
-//    refCast
-//    <
-//        const turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField
-//    >
-//    (
-//        nbrPatch.lookupPatchField<volScalarField, scalar>
-//        (
-//            TnbrName_
-//        )
-//    );
-//
-//    // Swap to obtain full local values of neighbour internal field
-//    tmp<scalarField> nbrIntFld(new scalarField(nbrField.size(), Zero));
-//    tmp<scalarField> nbrKDelta(new scalarField(nbrField.size(), Zero));
-//
-//    if (contactRes_ == 0.0)
-//    {
-//        nbrIntFld.ref() = nbrField.patchInternalField();
-//        nbrKDelta.ref() = nbrField.kappa(nbrField)*nbrPatch.deltaCoeffs();
-//    }
-//    else
-//    {
-//        nbrIntFld.ref() = nbrField;
-//        nbrKDelta.ref() = contactRes_;
-//    }
-//
-//    mpp.distribute(nbrIntFld.ref());
-//    mpp.distribute(nbrKDelta.ref());
-//
-//    tmp<scalarField> myKDelta = kappa(*this)*patch().deltaCoeffs();
-
+        mappedPatchFieldBase<scalar>::mapper
+        (
+            patch(),
+            this->internalField()
+        );
 
     const tmp<scalarField> myKDelta = kappa(*this)*patch().deltaCoeffs();
     tmp<scalarField> nbrIntFld;
     tmp<scalarField> nbrKDelta;
+
+    //Pout<< "updateCoeffs() : mpp.sameWorld():" << mpp.sameWorld() << endl;
+
 
     if (mpp.sameWorld())
     {
@@ -290,12 +273,20 @@ void turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField::updateCoeffs()
 
         if (contactRes_ == 0.0)
         {
+            // Get neighbour internal data in local order. Does all
+            // comms/reordering already
             nbrIntFld = this->mappedInternalField();
+            // Calculate neighbour weighting (in neighbouring ordering)
             nbrKDelta = nbrField.kappa(nbrField)*nbrPatch.deltaCoeffs();
         }
         else
         {
+            // Get neighbour patch values
             nbrIntFld = nbrField;
+            // Comms/reorder to local
+            distribute(this->internalField().name(), nbrIntFld.ref());
+
+            // Constant neighbour weighting. Reorder/comms below
             nbrKDelta = new scalarField(nbrField.size(), contactRes_);
         }
     }
@@ -314,7 +305,17 @@ void turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField::updateCoeffs()
             nbrKDelta = new scalarField(this->size(), contactRes_);
         }
     }
-    mpp.distribute(nbrKDelta.ref());
+
+
+    //Pout<< "updateCoeffs() : nbrIntFld:" << flatOutput(nbrIntFld()) << endl;
+    //Pout<< "updateCoeffs() : nbrKDelta BEFORE:" << flatOutput(nbrKDelta())
+    //    << endl;
+
+    distribute(this->internalField().name() + "_weights", nbrKDelta.ref());
+    //Pout<< "updateCoeffs() : nbrKDelta AFTER:" << flatOutput(nbrKDelta())
+    //    << endl;
+    //Pout<< "updateCoeffs() : myKDelta:" << flatOutput(myKDelta())
+    //    << endl;
 
 
     // Both sides agree on
@@ -338,23 +339,23 @@ void turbulentTemperatureCoupledBaffle2MixedFvPatchScalarField::updateCoeffs()
 
     mixedFvPatchScalarField::updateCoeffs();
 
-    //if (debug)
-    //{
-    //    scalar Q = gSum(kappa(*this)*patch().magSf()*snGrad());
-    //
-    //    Info<< patch().boundaryMesh().mesh().name() << ':'
-    //        << patch().name() << ':'
-    //        << this->internalField().name() << " <- "
-    //        << nbrMesh.name() << ':'
-    //        << nbrPatch.name() << ':'
-    //        << this->internalField().name() << " :"
-    //        << " heat transfer rate:" << Q
-    //        << " walltemperature "
-    //        << " min:" << gMin(*this)
-    //        << " max:" << gMax(*this)
-    //        << " avg:" << gAverage(*this)
-    //        << endl;
-    //}
+    if (debug)
+    {
+        scalar Q = gSum(kappa(*this)*patch().magSf()*snGrad());
+    
+        Info<< patch().boundaryMesh().mesh().name() << ':'
+            << patch().name() << ':'
+            << this->internalField().name() << " <- "
+            << mpp.sampleRegion() << ':'
+            << mpp.samplePatch() << ':'
+            << this->internalField().name() << " :"
+            << " heat transfer rate:" << Q
+            << " walltemperature "
+            << " min:" << gMin(*this)
+            << " max:" << gMax(*this)
+            << " avg:" << gAverage(*this)
+            << endl;
+    }
 
     // Restore tag
     UPstream::msgType() = oldTag;

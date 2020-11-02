@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2019 OpenCFD Ltd.
+    \\  /    A nd           | Copyright (C) 2020 OpenCFD Ltd.
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -23,29 +23,22 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef mappedMixedFvPatchFields_H
-#define mappedMixedFvPatchFields_H
-
-#include "mappedMixedFvPatchField.H"
-#include "fieldTypes.H"
-#include "fvPatchFields.H"
+#include "mappedMixedFvPatchFields.H"
+#include "volMesh.H"
+#include "addToRunTimeSelectionTable.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
-//makePatchTypeFieldTypedefs(mappedMixed)
-makePatchTypeFieldTypedef(scalar, mappedMixed);
+//makeTemplatePatchTypeField(scalar, mappedMixed);
+makePatchFields(mappedMixed);
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-#endif
 
 // ************************************************************************* //

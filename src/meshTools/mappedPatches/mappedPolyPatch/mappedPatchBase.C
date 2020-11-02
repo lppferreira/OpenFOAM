@@ -127,7 +127,7 @@ Foam::label Foam::mappedPatchBase::communicator
     // Start off with local world
     label comm = UPstream::worldComm;
 
-    if (!sampleWorld.empty())
+    if (!sampleWorld.empty() && Pstream::parRun())
     {
         if (!UPstream::allWorlds().found(sampleWorld))
         {
@@ -666,7 +666,7 @@ void Foam::mappedPatchBase::findSamples
 
             if (debug)
             {
-                Pout<< "*** Searching locally for " << localSamples.size()
+                Pout<< "Searching locally for " << localSamples.size()
                     << " samples on region:" << localOrigRegion
                     << " on patch:" << localOrigPatch << endl;
             }
@@ -696,24 +696,24 @@ void Foam::mappedPatchBase::findSamples
     );
     Pstream::listCombineScatter(nearest, Pstream::msgType(), comm_);
 
-    if (debug)
-    {
-        Pout<< "** AFter combining:" << endl;
-        forAll(nearest, samplei)
-        {
-            Pout<< "  sample:" << samples[samplei]
-                << " origating from proc:" << origProcs[samplei]
-                << " to be found on world:" << wantedWorlds[samplei] << nl
-                << "    found on world:" << nearest[samplei].second() << nl
-                << "    found on proc:"
-                << nearest[samplei].first().second().second() << nl
-                << "    found on patchfacei:"
-                << nearest[samplei].first().first().index() << nl
-                << "    found at location:"
-                << nearest[samplei].first().first().rawPoint() << nl;
-        }
-        Pout<< endl;
-    }
+    //if (debug)
+    //{
+    //    Pout<< "** AFter combining:" << endl;
+    //    forAll(nearest, samplei)
+    //    {
+    //        Pout<< "  sample:" << samples[samplei]
+    //            << " origating from proc:" << origProcs[samplei]
+    //            << " to be found on world:" << wantedWorlds[samplei] << nl
+    //            << "    found on world:" << nearest[samplei].second() << nl
+    //            << "    found on proc:"
+    //            << nearest[samplei].first().second().second() << nl
+    //            << "    found on patchfacei:"
+    //            << nearest[samplei].first().first().index() << nl
+    //            << "    found at location:"
+    //            << nearest[samplei].first().first().rawPoint() << nl;
+    //    }
+    //    Pout<< endl;
+    //}
 
     // Convert back into proc+local index
     sampleProcs.setSize(samples.size());
@@ -750,6 +750,31 @@ void Foam::mappedPatchBase::calcMapping() const
         FatalErrorInFunction
             << "Mapping already calculated" << exit(FatalError);
     }
+
+    //// Make sure if running in database that there is a syncObjects FO
+    //if (sampleDatabase() && !sameWorld())
+    //{
+    //    const word syncName("syncObjects");
+    //    const polyMesh& mesh = patch_.boundaryMesh().mesh();
+    //    const Time& runTime = mesh.time();
+    //    const functionObjectList& fos = runTime.functionObjects();
+    //
+    //    forAll(fos, i)
+    //    {
+    //        Pout<< "** FO:" << fos[i].name() << " tpye:" << fos[i].type()
+    //            << endl;
+    //    }
+    //
+    //    if (fos.findObjectID(syncName) == -1)
+    //    {
+    //        //FatalErrorInFunction
+    //        WarningInFunction
+    //            << "Did not detect functionObject " << syncName
+    //            << ". This is used to synchronise data inbetween worlds"
+    //            << endl;
+    //    }
+    //}
+
 
     // Get points on face (since cannot use face-centres - might be off
     // face-diagonal decomposed tets.
@@ -815,16 +840,16 @@ void Foam::mappedPatchBase::calcMapping() const
         patchFc
     );
 
-    if (debug)
-    {
-        forAll(samples, samplei)
-        {
-            Pout<< "    sample:" << samples[samplei]
-                << " origating from proc:" << patchFaceProcs[samplei]
-                << "  face:" << patchFaces[samplei]
-                << " to be found on world:" << patchFaceWorlds[samplei] << nl;
-        }
-    }
+    //if (debug)
+    //{
+    //    forAll(samples, samplei)
+    //    {
+    //        Pout<< "    sample:" << samples[samplei]
+    //            << " origating from proc:" << patchFaceProcs[samplei]
+    //            << "  face:" << patchFaces[samplei]
+    //            << " to be found on world:" << patchFaceWorlds[samplei] << nl;
+    //    }
+    //}
 
     // Find processor and cell/face samples are in and actual location.
     labelList sampleProcs;
@@ -915,21 +940,38 @@ void Foam::mappedPatchBase::calcMapping() const
     // - cell/face sample is in (so source when mapping)
     //   sampleIndices, sampleProcs.
 
-    if (debug && Pstream::master(comm_))
+    if (Pstream::master(comm_))
     {
         forAll(samples, i)
         {
-            Pout<< i << " need data in region "
-                << patch_.boundaryMesh().mesh().name()
-                << " for proc:" << patchFaceProcs[i]
-                << " face:" << patchFaces[i]
-                << " at:" << patchFc[i] << endl
-                << "Found data in region " << sampleRegion()
-                << " at proc:" << sampleProcs[i]
-                << " face:" << sampleIndices[i]
-                << " at:" << sampleLocations[i]
-                << nl << endl;
+            if (sampleProcs[i] == -1)
+            {
+                FatalErrorInFunction << "did not find sample "
+                    << patchFc[i] << " on patch " << patch_.name()
+                    << " on region "
+                    << patch_.boundaryMesh().mesh().name()
+                    << " on processor " << patchFaceProcs[i]
+                    << exit(FatalError);
+            }
         }
+    }
+
+
+    if (debug && Pstream::master(comm_))
+    {
+        //forAll(samples, i)
+        //{
+        //    Pout<< i << " need data in region "
+        //        << patch_.boundaryMesh().mesh().name()
+        //        << " for proc:" << patchFaceProcs[i]
+        //        << " face:" << patchFaces[i]
+        //        << " at:" << patchFc[i] << endl
+        //        << "Found data in region " << sampleRegion()
+        //        << " at proc:" << sampleProcs[i]
+        //        << " face:" << sampleIndices[i]
+        //        << " at:" << sampleLocations[i]
+        //        << nl << endl;
+        //}
 
         OFstream str
         (

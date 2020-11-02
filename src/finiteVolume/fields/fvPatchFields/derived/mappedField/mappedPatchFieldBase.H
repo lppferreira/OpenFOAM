@@ -81,6 +81,7 @@ class mappedPatchFieldBase
         //- Selective retrieval of "average" entry from the dictionary
         static Type getAverage(const dictionary& dict, bool mandatory);
 
+
 protected:
 
     // Protected data
@@ -108,6 +109,7 @@ protected:
     // Protected Member Functions
 
         //- Construct field from registered elements
+        template<class T>
         void initRetrieveField
         (
             const objectRegistry& obr,
@@ -115,7 +117,7 @@ protected:
             const word& patch,
             const mapDistribute& map,
             const word& fieldName,
-            const Field<Type>& fld
+            const Field<T>& fld
         ) const;
 
 
@@ -140,6 +142,16 @@ public:
             const mappedPatchBase& mapper,
             const fvPatchField<Type>& patchField,
             const dictionary& dict
+        );
+
+        //- Construct from dictionary and initial field value
+        //  (for when running in database mode)
+        mappedPatchFieldBase
+        (
+            const mappedPatchBase& mapper,
+            const fvPatchField<Type>& patchField,
+            const dictionary& dict,
+            const Field<Type>& fld
         );
 
         //- Construct empty
@@ -203,6 +215,22 @@ public:
 
         // Helpers
 
+            //- Check that patch is of correct type
+            static const mappedPatchBase& mapper
+            (
+                const fvPatch& p,
+                const DimensionedField<Type, volMesh>& iF
+            );
+
+            //- Initialise field to retrieve (used e.g. when value read from
+            //  dictionary)
+            template<class T>
+            void initRetrieveField
+            (
+                const word& fieldName,
+                const Field<T>& fld
+            ) const;
+
             //- Store elements of field onto (sub) registry
             template<class T>
             void storeField
@@ -219,6 +247,7 @@ public:
             template<class T>
             void retrieveField
             (
+                const bool allowUnset,
                 const objectRegistry& obr,
                 const word& region,
                 const word& patch,
@@ -230,7 +259,7 @@ public:
             //- Wrapper for mapDistribute::distribute that knows about
             //- dabase mapping
             template<class T>
-            void distribute(Field<T>& newValues) const;
+            void distribute(const word& fieldName, Field<T>& newValues) const;
 };
 
 

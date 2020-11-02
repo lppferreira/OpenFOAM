@@ -24,7 +24,7 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Class
-    Foam::mappedMixedFvPatchField
+    Foam::mappedMixedFieldFvPatchField
 
 Group
     grpGenericBoundaryConditions grpCoupledBoundaryConditions
@@ -50,7 +50,7 @@ Usage
     \verbatim
     <patchName>
     {
-        type            mappedMixed;
+        type            mappedMixedField;
         field           T;              // optional field name
         setAverage      no;             // apply an average value
         average         0;              // average to apply if setAverage
@@ -78,12 +78,12 @@ See also
     Foam::mixedFvPatchField
 
 SourceFiles
-    mappedMixedFvPatchField.C
+    mappedMixedFieldFvPatchField.C
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef mappedMixedFvPatchField_H
-#define mappedMixedFvPatchField_H
+#ifndef mappedMixedFieldFvPatchField_H
+#define mappedMixedFieldFvPatchField_H
 
 #include "mappedPatchBase.H"
 #include "mappedPatchFieldBase.H"
@@ -97,11 +97,11 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                  Class mappedMixedFvPatchField Declaration
+                  Class mappedMixedFieldFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
-class mappedMixedFvPatchField
+class mappedMixedFieldFvPatchField
 :
     public mixedFvPatchField<Type>,
     public mappedPatchBase,
@@ -115,20 +115,20 @@ class mappedMixedFvPatchField
 public:
 
     //- Runtime type information
-    TypeName("mappedMixed");
+    TypeName("mappedMixedField");
 
 
     // Constructors
 
         //- Construct from patch and internal field
-        mappedMixedFvPatchField
+        mappedMixedFieldFvPatchField
         (
             const fvPatch&,
             const DimensionedField<Type, volMesh>&
         );
 
         //- Construct from patch, internal field and dictionary
-        mappedMixedFvPatchField
+        mappedMixedFieldFvPatchField
         (
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
@@ -136,20 +136,20 @@ public:
         );
 
         //- Construct by mapping given
-        //  mappedMixedFvPatchField
+        //  mappedMixedFieldFvPatchField
         //  onto a new patch
-        mappedMixedFvPatchField
+        mappedMixedFieldFvPatchField
         (
-            const mappedMixedFvPatchField<Type>&,
+            const mappedMixedFieldFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
             const fvPatchFieldMapper&
         );
 
         //- Construct as copy
-        mappedMixedFvPatchField
+        mappedMixedFieldFvPatchField
         (
-            const mappedMixedFvPatchField<Type>&
+            const mappedMixedFieldFvPatchField<Type>&
         );
 
         //- Construct and return a clone
@@ -157,7 +157,7 @@ public:
         {
             return tmp<fvPatchField<Type>>
             (
-                new mappedMixedFvPatchField<Type>
+                new mappedMixedFieldFvPatchField<Type>
                 (
                     *this
                 )
@@ -165,9 +165,9 @@ public:
         }
 
         //- Construct as copy setting internal field reference
-        mappedMixedFvPatchField
+        mappedMixedFieldFvPatchField
         (
-            const mappedMixedFvPatchField<Type>&,
+            const mappedMixedFieldFvPatchField<Type>&,
             const DimensionedField<Type, volMesh>&
         );
 
@@ -179,7 +179,7 @@ public:
         {
             return tmp<fvPatchField<Type>>
             (
-                new mappedMixedFvPatchField<Type>
+                new mappedMixedFieldFvPatchField<Type>
                 (
                     *this,
                     iF
@@ -224,7 +224,7 @@ public:
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 #ifdef NoRepository
-    #include "mappedMixedFvPatchField.C"
+    #include "mappedMixedFieldFvPatchField.C"
 #endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

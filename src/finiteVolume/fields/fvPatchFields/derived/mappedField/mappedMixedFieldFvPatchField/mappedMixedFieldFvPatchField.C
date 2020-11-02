@@ -25,14 +25,14 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "mappedMixedFvPatchField.H"
+#include "mappedMixedFieldFvPatchField.H"
 #include "volFields.H"
 #include "interpolationCell.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
-Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
+Foam::mappedMixedFieldFvPatchField<Type>::mappedMixedFieldFvPatchField
 (
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF
@@ -50,7 +50,7 @@ Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
 
 
 template<class Type>
-Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
+Foam::mappedMixedFieldFvPatchField<Type>::mappedMixedFieldFvPatchField
 (
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
@@ -81,13 +81,25 @@ Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
         this->refGrad() = Zero;
         this->valueFraction() = 1.0;
     }
+
+    // Store patch value as initial guess when running in database mode
+    mappedPatchFieldBase<Type>::initRetrieveField
+    (
+        this->internalField().name(),
+        *this
+    );
+    mappedPatchFieldBase<Type>::initRetrieveField
+    (
+        this->internalField().name() + "_weights",
+        this->patch().deltaCoeffs()
+    );
 }
 
 
 template<class Type>
-Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
+Foam::mappedMixedFieldFvPatchField<Type>::mappedMixedFieldFvPatchField
 (
-    const mappedMixedFvPatchField<Type>& ptf,
+    const mappedMixedFieldFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const fvPatchFieldMapper& mapper
@@ -100,51 +112,10 @@ Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
 {}
 
 
-//template<class Type>
-//Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
-//(
-//    const fvPatch& p,
-//    const DimensionedField<Type, volMesh>& iF,
-//
-//    // mappedPatchBase
-//    const word& sampleRegion,
-//    const sampleMode sampleMode,
-//    const word& samplePatch,
-//    const scalar distance,
-//
-//    // My settings
-//    const word& fieldName,
-//    const bool setAverage,
-//    const Type average,
-//    const word& interpolationScheme
-//)
-//:
-//    mixedFvPatchField<Type>(p, iF),
-//    mappedPatchBase
-//    (
-//        p.patch(),
-//        sampleRegion,
-//        sampleMode,
-//        samplePatch,
-//        distance
-//    ),
-//    mappedPatchFieldBase<Type>
-//    (
-//        *this,
-//        *this,
-//        fieldName,
-//        setAverage,
-//        average,
-//        interpolationScheme
-//    )
-//    weightFieldName_(ptf.weightFieldName_)
-//{}
-
-
 template<class Type>
-Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
+Foam::mappedMixedFieldFvPatchField<Type>::mappedMixedFieldFvPatchField
 (
-    const mappedMixedFvPatchField<Type>& ptf
+    const mappedMixedFieldFvPatchField<Type>& ptf
 )
 :
     mixedFvPatchField<Type>(ptf),
@@ -155,9 +126,9 @@ Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
 
 
 template<class Type>
-Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
+Foam::mappedMixedFieldFvPatchField<Type>::mappedMixedFieldFvPatchField
 (
-    const mappedMixedFvPatchField<Type>& ptf,
+    const mappedMixedFieldFvPatchField<Type>& ptf,
     const DimensionedField<Type, volMesh>& iF
 )
 :
@@ -171,7 +142,7 @@ Foam::mappedMixedFvPatchField<Type>::mappedMixedFvPatchField
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 template<class Type>
-void Foam::mappedMixedFvPatchField<Type>::autoMap
+void Foam::mappedMixedFieldFvPatchField<Type>::autoMap
 (
     const fvPatchFieldMapper& m
 )
@@ -182,7 +153,7 @@ void Foam::mappedMixedFvPatchField<Type>::autoMap
 
 
 template<class Type>
-void Foam::mappedMixedFvPatchField<Type>::rmap
+void Foam::mappedMixedFieldFvPatchField<Type>::rmap
 (
     const fvPatchField<Type>& ptf,
     const labelList& addr
@@ -194,7 +165,7 @@ void Foam::mappedMixedFvPatchField<Type>::rmap
 
 
 template<class Type>
-void Foam::mappedMixedFvPatchField<Type>::updateCoeffs()
+void Foam::mappedMixedFieldFvPatchField<Type>::updateCoeffs()
 {
     if (this->updated())
     {
@@ -250,7 +221,7 @@ void Foam::mappedMixedFvPatchField<Type>::updateCoeffs()
 
 
 template<class Type>
-void Foam::mappedMixedFvPatchField<Type>::write(Ostream& os) const
+void Foam::mappedMixedFieldFvPatchField<Type>::write(Ostream& os) const
 {
     mappedPatchBase::write(os);
     mappedPatchFieldBase<Type>::write(os);

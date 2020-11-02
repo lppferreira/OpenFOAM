@@ -1498,9 +1498,9 @@ void Foam::argList::parse
                 << endl;
             if (UPstream::allWorlds().size() > 1)
             {
-                Info<< "    allWorlds          : "
+                Info<< "    worlds             : "
                     << flatOutput(UPstream::allWorlds()) << nl
-                    << "    myWorld            : " << UPstream::myWorld()
+                    << "    world              : " << UPstream::myWorld()
                     << endl;
             }
         }

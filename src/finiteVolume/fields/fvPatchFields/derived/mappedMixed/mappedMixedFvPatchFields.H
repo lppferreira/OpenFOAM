@@ -23,22 +23,29 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "mappedMixedFvPatchFields.H"
-#include "volMesh.H"
-#include "addToRunTimeSelectionTable.H"
+#ifndef mappedMixedFvPatchFields_H
+#define mappedMixedFvPatchFields_H
+
+#include "mappedMixedFvPatchField.H"
+#include "fieldTypes.H"
+#include "fvPatchFields.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
 {
 
-// * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-//makePatchFields(mappedMixed);
-makeTemplatePatchTypeField(scalar, mappedMixed);
+//makePatchTypeFieldTypedef(scalar, mappedMixed);
+makePatchTypeFieldTypedefs(mappedMixed)
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+#endif
 
 // ************************************************************************* //
