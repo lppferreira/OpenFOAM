@@ -1338,7 +1338,7 @@ Foam::mappedPatchBase::mappedPatchBase
     const dictionary& dict
 )
 :
-    patch_(getPatch(pp, dict)),
+    patch_(pp),
     sampleWorld_(dict.getOrDefault<word>("sampleWorld", word::null)),
     sampleRegion_(dict.getOrDefault<word>("sampleRegion", word::null)),
     mode_(sampleModeNames_.get("sampleMode", dict)),
@@ -1494,7 +1494,12 @@ Foam::mappedPatchBase::mappedPatchBase
     mode_(mpb.mode_),
     samplePatch_(mpb.samplePatch_),
     coupleGroup_(mpb.coupleGroup_),
-    sampleDatabasePtr_(mpb.sampleDatabasePtr_),
+    sampleDatabasePtr_
+    (
+        mpb.sampleDatabasePtr_
+      ? new fileName(mpb.sampleDatabasePtr_())
+      : nullptr
+    ),
     offsetMode_(mpb.offsetMode_),
     offset_(mpb.offset_),
     offsets_(mpb.offsets_),
@@ -1522,7 +1527,12 @@ Foam::mappedPatchBase::mappedPatchBase
     mode_(mpb.mode_),
     samplePatch_(mpb.samplePatch_),
     coupleGroup_(mpb.coupleGroup_),
-    sampleDatabasePtr_(mpb.sampleDatabasePtr_),
+    sampleDatabasePtr_
+    (
+        mpb.sampleDatabasePtr_
+      ? new fileName(mpb.sampleDatabasePtr_())
+      : nullptr
+    ),
     offsetMode_(mpb.offsetMode_),
     offset_(mpb.offset_),
     offsets_
@@ -1895,7 +1905,7 @@ void Foam::mappedPatchBase::write(Ostream& os) const
     os.writeEntryIfDifferent<word>("sampleRegion", word::null, sampleRegion_);
     os.writeEntryIfDifferent<word>("samplePatch", word::null, samplePatch_);
 
-    if (sampleDatabasePtr_.valid())
+    if (sampleDatabasePtr_)
     {
         os.writeEntry("sampleDatabase", sampleDatabasePtr_.valid());
         // Write database path if differing

@@ -299,6 +299,7 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
         wordList worlds(numprocs);
         worlds[Pstream::myProcNo()] = world;
         Pstream::gatherList(worlds);
+        Pstream::scatterList(worlds);
 
         // Compact
         if (Pstream::master())
@@ -339,9 +340,37 @@ bool Foam::UPstream::init(int& argc, char**& argv, const bool needsThread)
         UPstream::worldComm = subComm;
         // For testing: warn use of non-worldComm
         UPstream::warnComm = UPstream::worldComm;
+
+        if (debug)
+        {
+            // Check
+            int subNProcs, subRank;
+            MPI_Comm_size
+            (
+                PstreamGlobals::MPICommunicators_[subComm],
+                &subNProcs
+            );
+            MPI_Comm_rank
+            (
+                PstreamGlobals::MPICommunicators_[subComm],
+                &subRank
+            );
+
+            Pout<< "UPstream::init : in world:" << world
+                << " using local communicator:" << subComm
+                << " with procs:" << subNProcs
+                << " and rank:" << subRank
+                << endl;
+        }
+
         // Override Pout prefix (move to setParRun?)
         Pout.prefix() = '[' + world + '/' +  name(myProcNo(subComm)) + "] ";
         Perr.prefix() = '[' + world + '/' +  name(myProcNo(subComm)) + "] ";
+    }
+    else
+    {
+        // All processors use world 0
+        worldIDs_.setSize(numprocs, 0);
     }
 
     attachOurBuffers();
@@ -524,7 +553,7 @@ void Foam::sumReduce
 {
     if (UPstream::warnComm != -1 && communicator != UPstream::warnComm)
     {
-        Pout<< "** reducing:" << Value << " with comm:" << communicator
+        Pout<< "** sumReduce:" << Value << " with comm:" << communicator
             << " warnComm:" << UPstream::warnComm
             << endl;
         error::printStack(Pout);
@@ -704,7 +733,18 @@ void Foam::UPstream::allToAll
     const label communicator
 )
 {
-    label np = nProcs(communicator);
+    const label np = nProcs(communicator);
+
+    if (UPstream::warnComm != -1 && communicator != UPstream::warnComm)
+    {
+        Pout<< "** allToAll :"
+            << " np:" << np
+            << " sendData:" << sendData.size()
+            << " with comm:" << communicator
+            << " warnComm:" << UPstream::warnComm
+            << endl;
+        error::printStack(Pout);
+    }
 
     if (sendData.size() != np || recvData.size() != np)
     {
@@ -764,7 +804,18 @@ void Foam::UPstream::allToAll
     const label communicator
 )
 {
-    label np = nProcs(communicator);
+    const label np = nProcs(communicator);
+
+    if (UPstream::warnComm != -1 && communicator != UPstream::warnComm)
+    {
+        Pout<< "** allToAll :"
+            << " sendSizes:" << sendSizes
+            << " sendOffsets:" << sendOffsets
+            << " with comm:" << communicator
+            << " warnComm:" << UPstream::warnComm
+            << endl;
+        error::printStack(Pout);
+    }
 
     if
     (
@@ -838,7 +889,19 @@ void Foam::UPstream::gather
     const label communicator
 )
 {
-    label np = nProcs(communicator);
+    const label np = nProcs(communicator);
+
+    if (UPstream::warnComm != -1 && communicator != UPstream::warnComm)
+    {
+        Pout<< "** allToAll :"
+            << " np:" << np
+            << " recvSizes:" << recvSizes
+            << " recvOffsets:" << recvOffsets
+            << " with comm:" << communicator
+            << " warnComm:" << UPstream::warnComm
+            << endl;
+        error::printStack(Pout);
+    }
 
     if
     (
@@ -904,7 +967,19 @@ void Foam::UPstream::scatter
     const label communicator
 )
 {
-    label np = nProcs(communicator);
+    const label np = nProcs(communicator);
+
+    if (UPstream::warnComm != -1 && communicator != UPstream::warnComm)
+    {
+        Pout<< "** allToAll :"
+            << " np:" << np
+            << " sendSizes:" << sendSizes
+            << " sendOffsets:" << sendOffsets
+            << " with comm:" << communicator
+            << " warnComm:" << UPstream::warnComm
+            << endl;
+        error::printStack(Pout);
+    }
 
     if
     (

@@ -79,9 +79,13 @@ void Foam::mappedPatchFieldBase<Type>::storeField
               / patch
             );
 
-            Pout<< "*** STORING :"
-                << " field:" << fieldName << " values:" << flatOutput(subFld)
-                << " as:" << subObr.objectPath() << endl; 
+            if (fvPatchField<Type>::debug)
+            {
+                Pout<< "*** STORING :"
+                    << " field:" << fieldName
+                    << " values:" << flatOutput(subFld)
+                    << " as:" << subObr.objectPath() << endl; 
+            }
 
             mappedPatchBase::storeField
             (
@@ -135,9 +139,14 @@ void Foam::mappedPatchFieldBase<Type>::retrieveField
             if (subFldPtr)
             {
                 UIndirectList<T>(fld, map) = *subFldPtr;
-                Pout<< "*** RETRIEVED :"
-                    << " field:" << fieldName << " values:" << flatOutput(fld)
-                    << " from:" << subObr.objectPath() << endl;
+
+                if (fvPatchField<Type>::debug)
+                {
+                    Pout<< "*** RETRIEVED :"
+                        << " field:" << fieldName
+                        << " values:" << flatOutput(fld)
+                        << " from:" << subObr.objectPath() << endl;
+                }
             }
             else if (allowUnset)
             {
@@ -186,13 +195,15 @@ void Foam::mappedPatchFieldBase<Type>::initRetrieveField
 
             const Field<T> receiveFld(fld, constructMap);
 
-            Pout<< "*** STORING INITIAL :"
-                << " field:" << fieldName << " values:"
-                << flatOutput(receiveFld)
-                << " from:" << flatOutput(fld)
-                << " constructMap:" << flatOutput(constructMap)
-                << " as:" << subObr.objectPath() << endl; 
-
+            if (fvPatchField<Type>::debug)
+            {
+                Pout<< "*** STORING INITIAL :"
+                    << " field:" << fieldName << " values:"
+                    << flatOutput(receiveFld)
+                    << " from:" << flatOutput(fld)
+                    << " constructMap:" << flatOutput(constructMap)
+                    << " as:" << subObr.objectPath() << endl; 
+            }
 
             mappedPatchBase::storeField
             (
@@ -249,6 +260,22 @@ Foam::mappedPatchFieldBase<Type>::mappedPatchFieldBase
     average_(getAverage(dict, setAverage_)),
     interpolationScheme_(interpolationCell<Type>::typeName)
 {
+    if
+    (
+        mapper_.sampleDatabase()
+     && mapper_.mode() != mappedPatchBase::NEARESTPATCHFACE
+    )
+    {
+        FatalErrorInFunction
+            << "Mapping using the database only supported for "
+            << "sampleMode "
+            <<  mappedPatchBase::sampleModeNames_
+                [
+                    mappedPatchBase::NEARESTPATCHFACE
+                ]
+            << exit(FatalError);
+    }
+
     if (mapper_.mode() == mappedPatchBase::NEARESTCELL)
     {
         dict.readEntry("interpolationScheme", interpolationScheme_);
