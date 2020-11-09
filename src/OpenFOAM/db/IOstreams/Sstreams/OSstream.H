@@ -60,7 +60,7 @@ class OSstream
 
         fileName name_;
 
-        std::ostream& os_;
+        std::ostream* os_;
 
 
 public:
@@ -81,7 +81,7 @@ public:
         inline OSstream
         (
             std::ostream& os,
-            const string& streamName,
+            const fileName& streamName,
             IOstreamOption streamOpt = IOstreamOption()
         );
 
@@ -89,7 +89,7 @@ public:
         OSstream
         (
             std::ostream& os,
-            const string& streamName,
+            const fileName& streamName,
             streamFormat fmt,
             versionNumber ver = currentVersion,
             compressionType comp = compressionType::UNCOMPRESSED
@@ -101,7 +101,7 @@ public:
 
     // Member Functions
 
-        // Enquiry
+        // Query/Edit
 
             //- Return the name of the stream
             //  Useful for Fstream to return the filename
@@ -119,6 +119,11 @@ public:
 
             //- Return flags of output stream
             virtual ios_base::fmtflags flags() const;
+
+            //- Associate a different std::ostream with the OSstream
+            //  \return the previously attached stream
+            inline std::ostream& attach(std::ostream& os);
+
 
 
         // Write functions
@@ -222,13 +227,13 @@ public:
             //- Access to underlying std::ostream
             virtual std::ostream& stdStream()
             {
-                return os_;
+                return *os_;
             }
 
             //- Const access to underlying std::ostream
             virtual const std::ostream& stdStream() const
             {
-                return os_;
+                return *os_;
             }
 
 
