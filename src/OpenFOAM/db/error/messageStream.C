@@ -33,7 +33,10 @@ License
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 // Default is 2 : report source file name and line number if available
-int Foam::messageStream::level(Foam::debug::debugSwitch("level", 2));
+int Foam::messageStream::level
+(
+    Foam::debug::infoSwitch("outputLevel", 2)
+);
 
 int Foam::messageStream::redirect(0);
 
