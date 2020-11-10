@@ -129,6 +129,41 @@ const std::ostream& Foam::OFstream::stdStream() const
 }
 
 
+void Foam::OFstream::rewind()
+{
+    lineNumber_ = 1;  // Reset line number
+
+    if (IOstreamOption::COMPRESSED == ofstreamPointer::whichCompression())
+    {
+        // Special treatment for compressed stream
+        ofstreamPointer::reopen_gz(this->name() + ".gz");
+    }
+    else
+    {
+        // General reopen
+        ofstreamPointer::reopen(this->name());
+    }
+
+
+    // OSstream::rewind();
+    setState(ofstreamPointer::get()->rdstate());
+
+    if (good())
+    {
+        setOpened();
+    }
+    else
+    {
+        setClosed();
+        setBad();
+    }
+
+    lineNumber_ = 1;      // Reset line number
+
+    stdStream().rdbuf()->pubseekpos(0, std::ios_base::out);
+}
+
+
 void Foam::OFstream::print(Ostream& os) const
 {
     os  << "OFstream: ";

@@ -108,6 +108,9 @@ public:
         //- Const access to underlying std::ostream
         virtual const std::ostream& stdStream() const;
 
+        //- Rewind the stream so that it may be written again
+        virtual void rewind();
+
 
     // Print
 
