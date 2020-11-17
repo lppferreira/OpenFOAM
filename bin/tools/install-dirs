@@ -1,0 +1,371 @@
+#!/bin/sh
+#------------------------------------------------------------------------------
+# =========                 |
+# \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+#  \\    /   O peration     |
+#   \\  /    A nd           | www.openfoam.com
+#    \\/     M anipulation  |
+#------------------------------------------------------------------------------
+#     Copyright (C) 2020 OpenCFD Ltd.
+#------------------------------------------------------------------------------
+# License
+#     This file is part of OpenFOAM, distributed under GPL-3.0-or-later.
+#
+# Script
+#     install-dirs
+#
+# Example usage
+#     install-dirs -prefix=/opt/openfoam2012
+#
+# Description
+#     Simple installer to copy non-binary directories.
+#
+#------------------------------------------------------------------------------
+printHelp() {
+    cat<<USAGE
+
+Usage: ${0##*/} [OPTION]
+
+input options:
+  -source=DIR       Source directory (default: $WM_PROJECT_DIR)
+  -platform=NAME    Platform name (default: $WM_OPTIONS)
+  -foam-mpi=NAME    OpenFOAM mpi name (default: $FOAM_MPI)
+
+target options:
+  -prefix=DIR       Top-level installation directory (eg, /opt/openfoamVER)
+
+selections:
+  -all              Same as -common -devel -doc -tut
+  -core             Same as -common -devel
+  -common           Install bin, etc, META-INFO
+  -devel            Install applications, src, wmake
+  -doc              Install doc
+  -tut              Install tutorials
+  -collate          Enable modules collation
+  -collate-doc      Collate modules doc into doc/modules
+  -collate-tut      Collate modules tutorials into tutorials/modules
+
+deselection:
+  -no-common        No bin, etc
+  -no-devel         No applications, src, wmake
+  -no-app           No applications
+  -no-doc           No doc
+  -no-tut           No tutorials
+
+general options:
+  -dry-run, -n      Do not perform any operations
+  -force, -f        Ignored
+  -verbose, -v      Additional verbosity
+  -help             Print the help and exit
+
+
+Simple installer to copy OpenFOAM non-binary directories.
+
+USAGE
+    exit 0  # A clean exit
+}
+
+unset optDryRun hadError
+# Report error and exit
+die()
+{
+    exec 1>&2
+    echo
+    echo "Error encountered:"
+    while [ "$#" -ge 1 ]; do echo "    $1"; shift; done
+    echo
+    echo "See '${0##*/} -help' for usage"
+    echo
+    exit 1
+}
+
+# Report error and exit
+warnOrDie()
+{
+    if [ -n "$optDryRun" ]
+    then
+        hadError=true
+        while [ "$#" -ge 1 ]; do echo "Error: $1" 1>&2; shift; done
+    else
+        die "$@"
+    fi
+}
+
+
+# Get the option's value (argument), or die on missing or empty value
+# $1 option=value
+getOptionValue()
+{
+    local value="${1#*=}"
+    # Remove any surrounding double quotes
+    value="${value%\"}"
+    value="${value#\"}"
+
+    [ -n "$value" ] || die "'${1%=}' option requires a value"
+    echo "$value"
+}
+
+
+#-------------------------------------------------------------------------------
+# Defaults from current OpenFOAM environment
+sourceDir="$WM_PROJECT_DIR"
+platform="$WM_OPTIONS"
+foam_mpi="$FOAM_MPI"
+
+unset optInstall_common optInstall_devel
+unset optInstall_app
+unset optInstall_doc optCollate_doc
+unset optInstall_tut optCollate_tut
+unset optCollate
+
+unset prefix optVerbose
+
+# Parse options
+while [ "$#" -gt 0 ]
+do
+    case "$1" in
+    -h | -help*) printHelp ;;
+    -n | -dry-run) optDryRun="(dry-run) " ;;
+    -v | -verbose) optVerbose=true ;;
+    -f | -force) echo "Ignore option: ${1%%=*}" 1>&2 ;;
+
+    # Inputs
+    -source=*) sourceDir="$(getOptionValue "$1")" ;;
+    -platform=*) echo "Ignore option: ${1%%=*}" 1>&2 ;;
+    -foam-mpi=*) echo "Ignore option: ${1%%=*}" 1>&2 ;;
+
+    # Targets
+    -prefix=*) prefix="$(getOptionValue "$1")" ;;
+
+    # Selections
+
+    -all)
+        optInstall_common=default
+        optInstall_devel=default
+        optInstall_doc=default
+        optInstall_tut=default
+        ;;
+
+    -core)
+        optInstall_common=default
+        optInstall_devel=default
+        ;;
+
+    -common)    optInstall_common=default ;;
+    -no-common) optInstall_common=false ;;
+
+    -devel)     optInstall_devel=default ;;
+    -no-devel)  optInstall_devel=false ;;
+
+    -no-app)    optInstall_app=false ;;
+
+    -doc)       optInstall_doc=default ;;
+    -no-doc)    optInstall_doc=false ;;
+
+    -tut)       optInstall_tut=default ;;
+    -no-tut)    optInstall_tut=false ;;
+
+    -collate)     optCollate=true ;;
+    -no-collate)  unset optCollate optCollate_doc optCollate_tut ;;
+    -collate-doc) optCollate_doc=true ;;
+    -collate-tut) optCollate_tut=true ;;
+
+    *)
+        die "Unknown option/argument: $1"
+        ;;
+    esac
+    shift
+done
+
+#-------------------------------------------------------------------------------
+
+[ "${optInstall_common:-false}" = false ] && unset optInstall_common
+[ "${optInstall_devel:-false}" = false ]  && unset optInstall_devel
+
+if [ "${optInstall_doc:-false}" = false ]
+then
+    unset optInstall_doc
+elif [ "$optCollate_doc" = true ] || [ "$optCollate" = true ]
+then
+    optInstall_doc=collate
+fi
+
+if [ "${optInstall_tut:-false}" = false ]
+then
+    unset optInstall_tut
+elif [ "$optCollate_tut" = true ] || [ "$optCollate" = true ]
+then
+    optInstall_tut=collate
+fi
+
+# Proper umask
+
+umask 022
+
+# Report settings
+
+echo "Preparing install with the following parameters" 1>&2
+echo "source:" 1>&2
+echo "    directory   $sourceDir" 1>&2
+echo 1>&2
+echo "target" 1>&2
+echo "    directory   $prefix" 1>&2
+##echo "    binary      ${optInstall_binary:-[disabled]}" 1>&2
+echo "    common      ${optInstall_common:-[disabled]}" 1>&2
+echo "    devel       ${optInstall_devel:-[disabled]}" 1>&2
+echo "    doc         ${optInstall_doc:-[disabled]}" 1>&2
+echo "    tut         ${optInstall_tut:-[disabled]}" 1>&2
+echo 1>&2
+
+# Input checks
+
+[ -d "$sourceDir" ] || warnOrDie "Invalid -source directory: $sourceDir"
+
+
+# Check sanity
+[ -n "$prefix" ] || warnOrDie "Must specify -prefix"
+
+if [ -n "$hadError" ]
+then
+    echo "Errors encounters in dry-run. Stopping" 1>&2
+    exit 1
+fi
+
+if [ -z "${optInstall_common}${optInstall_devel}${optInstall_doc}${optInstall_tut}" ]
+then
+    echo "Nothing specified to install. Skipping" 1>&2
+    exit 0
+fi
+
+#------------------------------------------------------------------------------
+
+# The commands
+copy_cmd="cp -a ${optVerbose:+-v}"
+mkdir_cmd="mkdir -p"
+
+if [ -n "$optDryRun" ]
+then
+    if [ -n "$optVerbose" ]
+    then
+        copy_cmd="echo cp -a"
+        mkdir_cmd="echo mkdir -p"
+    else
+        copy_cmd="true"
+        mkdir_cmd="true"
+    fi
+fi
+
+
+# Copy file or directory to <prefix>
+doCopy()
+{
+    $mkdir_cmd "$prefix" 2>/dev/null
+
+    for i in "$@"
+    do
+        if [ -e "$sourceDir/$i" ]
+        then
+            $copy_cmd "$sourceDir/$i" "$prefix"
+            nCopied="x$nCopied"
+        else
+            echo "Missing? $sourceDir/$i" 1>&2
+        fi
+    done
+    echo "${optDryRun}${#nCopied} items copied" 1>&2
+}
+
+
+
+# Collate (doc | tutorials)
+# Eg,
+#    modules/{NAME}/tutorials
+# => tutorials/modules/{NAME}
+collateFiles()
+{
+    local subDir="$1"
+    local subTarget="$prefix/$subDir/modules"
+
+    if [ -d "$sourceDir/modules" ]
+    then
+    (
+        cd "$sourceDir/modules" || exit
+
+        $mkdir_cmd "$subTarget"
+
+        for i in $(find . -mindepth 2 -maxdepth 2 -name "$subDir" -type d)
+        do
+            $mkdir_cmd "$subTarget/${i%/*}"
+            $copy_cmd "$i"/*  "$subTarget/${i%/*}"
+        done
+    )
+    fi
+}
+
+
+#------------------------------------------------------------------------------
+
+# common
+if [ -n "$optInstall_common" ]
+then
+    echo "${optDryRun}Install common: bin etc META-INFO" 1>&2
+    doCopy bin etc META-INFO
+else
+    echo "${optDryRun}Install common: [disabled]" 1>&2
+fi
+
+# develop (or source)
+if [ -n "$optInstall_devel" ]
+then
+    dirNames="wmake src"
+    if [ "$optInstall_app" = false ]
+    then
+        dirNames="$dirNames [applications=disabled]"
+    else
+        dirNames="$dirNames applications"
+    fi
+
+    echo "${optDryRun}Install devel: $dirNames" 1>&2
+
+    doCopy src wmake
+    if [ "$optInstall_app" != false ]
+    then
+        doCopy applications
+    fi
+else
+    echo "${optDryRun}Install devel: [disabled]" 1>&2
+fi
+
+# doc
+if [ -n "$optInstall_doc" ]
+then
+    echo "${optDryRun}Install doc:" 1>&2
+    doCopy doc
+
+    if [ "$optInstall_doc" = collate ]
+    then
+        echo "${optDryRun}Collate module doc: " 1>&2
+        collateFiles doc
+    fi
+else
+    echo "${optDryRun}Install doc: [disabled]" 1>&2
+fi
+
+# tutorials
+if [ -n "$optInstall_tut" ]
+then
+    echo "${optDryRun}Install tutorials:" 1>&2
+    doCopy tutorials
+
+    if [ "$optInstall_tut" = collate ]
+    then
+        echo "${optDryRun}Collate module tutorials: " 1>&2
+        collateFiles tutorials
+    fi
+else
+    echo "${optDryRun}Install tutorials: [disabled]" 1>&2
+fi
+
+
+exit 0 # clean exit
+
+#------------------------------------------------------------------------------
