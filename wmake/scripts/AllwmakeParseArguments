@@ -80,6 +80,7 @@ USAGE
 #------------------------------------------------------------------------------
 
 unset optDebug optLog optNonRecursive optPrefix optQueue
+unset optFrontend
 
 for arg in "$@"
 do
@@ -89,6 +90,12 @@ do
     case "$arg" in
     -h | -help*)
         usage
+        ;;
+
+    -with-bear)
+        # Everything wrapped via 'bear'
+        optFrontend="-with-bear"
+        break  # Stop now, continue with wmake
         ;;
 
     -no-recurs* | -fromWmake)
@@ -183,12 +190,12 @@ if [ -z "$optNonRecursive" ]
 then
     if [ -z "$optLog" ]
     then
-        exec wmake -all $optDebug $optQueue $*
+        exec wmake $optFrontend -all $optDebug $optQueue $*
         exit $? # Unneeded, but just in case something went wrong
     else
         echo "Logging wmake -all output to '$optLog'" 1>&2
         echo 1>&2
-        exec wmake -all $optDebug $optQueue $* 2>&1 | /usr/bin/tee $optLog
+        exec wmake $optFrontend -all $optDebug $optQueue $* 2>&1 | /usr/bin/tee $optLog
         # Need to cleanup after the tee
         rc=$? # Error code from tee (not wmake), but not entirely important
         echo "Done logging to '$optLog'" 1>&2
@@ -211,6 +218,7 @@ fi
 # Cleanup local variables and functions
 #------------------------------------------------------------------------------
 
+unset optFrontend
 unset optNonRecursive optDebug optLog optPrefix optQueue
 unset -f usage
 
