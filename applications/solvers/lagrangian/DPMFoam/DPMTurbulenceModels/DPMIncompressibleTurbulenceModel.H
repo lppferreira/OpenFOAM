@@ -25,22 +25,22 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Class
-    Foam::PhaseIncompressibleTurbulenceModel
+    Foam::DPMIncompressibleTurbulenceModel
 
 Description
-    Templated abstract base class for multiphase incompressible
+    Templated abstract base class for volumen occupancy incompressible
     turbulence models.
 
 SourceFiles
-    PhaseIncompressibleTurbulenceModel.C
+    DPMIncompressibleTurbulenceModel.C
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef PhaseIncompressibleTurbulenceModel_H
-#define PhaseIncompressibleTurbulenceModel_H
+#ifndef DPMIncompressibleTurbulenceModel_H
+#define DPMIncompressibleTurbulenceModel_H
 
 #include "TurbulenceModel.H"
-#include "incompressibleRhoTurbulenceModel.H"
+#include "incompressibleTurbulenceModel.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -48,36 +48,36 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-               Class PhaseIncompressibleTurbulenceModel Declaration
+               Class DPMIncompressibleTurbulenceModel Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class TransportModel>
-class PhaseIncompressibleTurbulenceModel
+class DPMIncompressibleTurbulenceModel
 :
     public TurbulenceModel
     <
-        geometricOneField,
         volScalarField,
-        incompressibleRhoTurbulenceModel,
+        geometricOneField,
+        incompressibleTurbulenceModel,
         TransportModel
     >
 {
 
 public:
 
-    typedef volScalarField rhoField;
-    typedef geometricOneField alphaField;
+    typedef volScalarField alphaField;
+    typedef geometricOneField rhoField;
     typedef TransportModel transportModel;
 
 
     // Constructors
 
         //- Construct
-        PhaseIncompressibleTurbulenceModel
+        DPMIncompressibleTurbulenceModel
         (
             const word& type,
             const alphaField& alpha,
-            const rhoField& rho,
+            const geometricOneField& rho,
             const volVectorField& U,
             const surfaceScalarField& alphaRhoPhi,
             const surfaceScalarField& phi,
@@ -89,9 +89,9 @@ public:
     // Selectors
 
         //- Return a reference to the selected turbulence model
-        static autoPtr<PhaseIncompressibleTurbulenceModel> New
+        static autoPtr<DPMIncompressibleTurbulenceModel> New
         (
-            const rhoField& rho,
+            const alphaField& alpha,
             const volVectorField& U,
             const surfaceScalarField& alphaRhoPhi,
             const surfaceScalarField& phi,
@@ -101,7 +101,7 @@ public:
 
 
     //- Destructor
-    virtual ~PhaseIncompressibleTurbulenceModel() = default;
+    virtual ~DPMIncompressibleTurbulenceModel() = default;
 
 
     // Member Functions
@@ -135,7 +135,7 @@ public:
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 #ifdef NoRepository
-    #include "PhaseIncompressibleTurbulenceModel.C"
+    #include "DPMIncompressibleTurbulenceModel.C"
 #endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
